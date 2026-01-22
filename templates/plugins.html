@@ -1,0 +1,47 @@
+{% block content %}
+
+<div class="plugins-header">
+  <h1>Plugins</h1>
+  <p class="subtitle">
+    Connect optional integrations to extend how ItemQ works.
+  </p>
+</div>
+
+<div class="plugins-grid">
+
+  <div class="plugin-card">
+    <div class="plugin-header">
+      <h3>Notion</h3>
+      <span class="plugin-badge">Inventory Sync</span>
+    </div>
+
+    <p class="plugin-description">
+      Sync generated barcodes directly into a Notion database.
+    </p>
+
+    <form hx-post="/api/plugins/notion/connect"
+          hx-target="#plugin-status"
+          hx-swap="innerHTML"
+          class="plugin-form">
+
+      <label>
+        Notion Token
+        <input type="password" name="token" placeholder="ntn_••••••••" required>
+      </label>
+
+      <label>
+        Database Link
+        <input type="url" name="database" placeholder="https://notion.so/..." required>
+      </label>
+
+      <button type="submit" class="btn-primary">
+        Connect Notion
+      </button>
+    </form>
+
+    <div id="plugin-status" class="plugin-status"></div>
+  </div>
+
+</div>
+
+{% endblock %}

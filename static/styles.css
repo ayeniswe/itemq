@@ -1,0 +1,659 @@
+body {
+  margin: 0;
+  font-family: system-ui;
+  background: #f4f4f4;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* =========================
+   Sidebar
+   ========================= */
+
+.sidebar {
+  width: 260px;
+  background: linear-gradient(180deg, #0f172a, #020617);
+  color: #f8fafc;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.logo-dot {
+  width: 10px;
+  height: 10px;
+  background: #6366f1;
+  border-radius: 50%;
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+/* Navigation */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  color: #e5e7eb;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sidebar-nav a:hover {
+  background: rgba(99, 102, 241, 0.15);
+  transform: translateX(2px);
+  color: #ffffff;
+}
+
+.sidebar-nav a.active {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+
+/* Flat icons */
+.icon-dashboard {
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z'/></svg>");
+}
+
+.icon-generate {
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M5 4h14v2H5zm0 6h14v2H5zm0 6h14v2H5z'/></svg>");
+}
+
+.icon-inventory {
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M4 6h16v12H4z M2 4h20v16H2z'/></svg>");
+}
+
+.icon-plugins {
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M7 2h10v6h5v8h-5v6H7v-6H2V8h5z'/></svg>");
+}
+
+main {
+  flex: 1;
+  padding: 2rem;
+  background: white;
+}
+
+/* =========================
+   Dashboard
+   ========================= */
+
+.dashboard-header {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+/* Card grid */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+/* Card base */
+.card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+}
+
+.card-icon {
+  font-size: 1.8rem;
+}
+
+/* Card content */
+.card-content h3 {
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.card-metric {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.card-hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Accent states */
+.card-primary {
+  border-left: 4px solid #6366f1;
+}
+
+.card-secondary {
+  border-left: 4px solid #10b981;
+}
+
+.card-warning {
+  border-left: 4px solid #f59e0b;
+}
+
+/* =========================
+   Inventory
+   ========================= */
+
+.inventory-header {
+  margin-bottom: 1.5rem;
+}
+
+.inventory-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.inventory-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  overflow-x: auto;
+}
+
+/* Table */
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.inventory-table thead {
+  background: #f9fafb;
+}
+
+.inventory-table th {
+  text-align: left;
+  font-weight: 500;
+  color: #374151;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.inventory-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #111827;
+}
+
+.inventory-table tr:hover {
+  background: #f9fafb;
+}
+
+/* Quantity emphasis */
+.inventory-table td:last-child {
+  font-weight: 500;
+}
+
+/* Image cell */
+.inventory-table img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* Toggle under Inventory header */
+.inventory-toggle {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.inventory-toggle input {
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+/* Source column pills */
+.source-pill {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Local inventory source */
+.source-local {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+/* Notion inventory source */
+.source-notion {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+/* Slight visual hint for remote rows */
+.inventory-remote {
+  opacity: 0.95;
+}
+
+/* Inventory add form */
+.inventory-add-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inventory-add-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1.2fr 0.6fr;
+  gap: 0.5rem;
+}
+
+.inventory-add-form input {
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+}
+
+.inventory-add-form input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #ffffff;
+}
+
+.inventory-add-form button {
+  align-self: flex-start;
+}
+
+/* Modern input fields */
+.inventory-add-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.inventory-add-grid label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.inventory-add-grid input {
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.inventory-add-grid input::placeholder {
+  color: #9ca3af;
+}
+
+.inventory-add-grid input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* Adjust grid now that barcode is removed */
+.inventory-add-grid {
+  grid-template-columns: 2fr 1fr;
+}
+
+/* Inventory add card (modern) */
+.inventory-add-card {
+  background: linear-gradient(180deg, #ffffff, #f9fafb);
+  border-radius: 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.inventory-add-card:hover {
+  box-shadow: 0 16px 40px rgba(0,0,0,0.08);
+  transform: translateY(-1px);
+}
+
+/* Tighten grid spacing */
+.inventory-add-grid {
+  align-items: end;
+}
+
+/* Input card feel */
+.inventory-add-grid input {
+  background: #ffffff;
+}
+
+/* Action row */
+.inventory-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+/* Primary button emphasis */
+.inventory-add-actions .btn-primary {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(99,102,241,0.35);
+}
+
+.inventory-add-actions .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(99,102,241,0.45);
+}
+
+/* =========================
+   Generate
+   ========================= */
+
+.generate-header {
+  margin-bottom: 1.5rem;
+}
+
+.generate-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.generate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.generate-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+}
+
+.generate-card h3 {
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.generate-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.generate-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.generate-form input {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.generate-form input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* Buttons */
+.btn-primary,
+.btn-secondary {
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: #6366f1;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #4f46e5;
+}
+
+.btn-secondary {
+  background: #10b981;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #059669;
+}
+
+/* Results */
+.results-card {
+  margin-top: 1.5rem;
+}
+/* =========================
+   Notion Integration
+   ========================= */
+
+.notion-action {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.btn-notion {
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-notion:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.notion-hint {
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: #6b7280;
+}
+
+.notion-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #111827;
+  cursor: pointer;
+}
+
+.notion-checkbox input[type="checkbox"] {
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+/* =========================
+   Plugins
+   ========================= */
+
+.plugins-header {
+  margin-bottom: 1.5rem;
+}
+
+.plugins-header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.plugins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.plugin-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+}
+
+.plugin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.plugin-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.plugin-badge {
+  font-size: 0.65rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+.plugin-description {
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+.plugin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plugin-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.plugin-form input {
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.plugin-form input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.plugin-status {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* Overlay for add inventory card */
+.inventory-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 6rem 2rem 2rem 320px;
+  z-index: 50;
+}
+
+/* Ensure card floats above table */
+.inventory-add-card {
+  max-width: 520px;
+}
+
+/* Toggle button spacing */
+.inventory-add-toggle {
+  margin-top: 0.75rem;
+}
+
+/* Hidden utility */
+.is-hidden {
+  display: none;
+}

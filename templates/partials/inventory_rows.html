@@ -1,0 +1,52 @@
+{% for item in items %}
+<tr>
+  <td class="inventory-image-cell">
+    <label class="inventory-image-upload">
+      {% if item.image_path %}
+        <img src="/media/{{ item.image_path }}"
+             alt="{{ item.name }}"
+             width="36"
+             height="36">
+      {% else %}
+        <img src="https://via.placeholder.com/36"
+             alt="No image">
+      {% endif %}
+
+      <input type="file"
+             name="file"
+             accept="image/*"
+             hx-post="/inventory/{{ item.id }}/image"
+             hx-trigger="change"
+             hx-encoding="multipart/form-data"
+             hx-swap="none" hidden>
+    </label>
+  </td>
+
+  <td>
+    <input type="text"
+           name="name"
+           value="{{ item.name }}"
+           hx-post="/inventory/{{ item.id }}/name"
+           hx-trigger="change"
+           hx-include="this">
+  </td>
+
+  <td>{{ item.barcode }}</td>
+
+  <td>
+    <input type="number"
+           min="0"
+           name="quantity"
+           value="{{ item.quantity }}"
+           hx-post="/inventory/{{ item.id }}/quantity"
+           hx-trigger="change"
+           hx-include="this">
+  </td>
+
+  <td>
+    <span class="source-pill source-{{ item.source }}">
+      {{ item.source|capitalize }}
+    </span>
+  </td>
+</tr>
+{% endfor %}

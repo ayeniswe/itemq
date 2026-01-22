@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ItemQ</title>
+
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-dot"></div>
+        <h2>ItemQ</h2>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a hx-get="/dashboard" hx-target="#content" hx-swap="innerHtml">
+          <span class="nav-icon icon-dashboard"></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a hx-get="/generate" hx-target="#content" hx-swap="innerHtml">
+          <span class="nav-icon icon-generate"></span>
+          <span class="nav-label">Generate</span>
+        </a>
+        <a hx-get="/inventory" hx-target="#content" hx-swap="innerHtml">
+          <span class="nav-icon icon-inventory"></span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a hx-get="/plugins" hx-target="#content" hx-swap="innerHtml">
+          <span class="nav-icon icon-plugins"></span>
+          <span class="nav-label">Plugins</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main id="content" hx-get="/dashboard" hx-trigger="load">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,64 @@
+{% block content %}
+
+<div class="generate-header">
+  <h1>Generate Barcodes</h1>
+  <p class="subtitle">Create or regenerate labels in just a few seconds.</p>
+</div>
+
+<div class="generate-grid">
+
+  <div class="generate-card">
+    <h3>New Stickers</h3>
+    <p class="card-hint">Generate fresh barcode labels</p>
+
+    <form hx-post="/api/generate"
+          hx-target="#barcode-results"
+          hx-swap="innerHTML"
+          class="generate-form">
+
+      <label>
+        Quantity
+        <input type="number" name="count" min="1" required>
+      </label>
+
+      <button type="submit" class="btn-primary">Generate</button>
+    </form>
+    <div class="notion-action">
+      <label class="notion-checkbox">
+        <input type="checkbox" name="use_notion">
+        <span>Use Notion database</span>
+      </label>
+      <p class="notion-hint">
+        Requires the Notion plugin to be enabled
+      </p>
+    </div>
+  </div>
+
+  <div class="generate-card">
+    <h3>Regenerate Stickers</h3>
+    <p class="card-hint">Only print what you need</p>
+
+    <form hx-post="/api/regenerate"
+          hx-target="#barcode-results"
+          hx-swap="innerHTML"
+          class="generate-form">
+
+      <label>
+        Barcode
+        <input type="text" name="barcode" placeholder="DEADBEEF" required>
+      </label>
+
+      <label>
+        Quantity
+        <input type="number" name="quantity" min="1" required>
+      </label>
+
+      <button type="submit" class="btn-secondary">Generate Stickers</button>
+    </form>
+  </div>
+
+</div>
+
+<div id="barcode-results" class="results-card"></div>
+
+{% endblock %}

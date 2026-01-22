@@ -1,0 +1,132 @@
+{% block content %}
+
+<div class="inventory-header">
+  <h1>Your Inventory</h1>
+  <p class="subtitle">A simple, organized view of everything you have.</p>
+
+  <label class="inventory-toggle">
+    <input type="checkbox"
+           name="include_notion"
+           value="true"
+           {% if request.query_params.get('include_notion') %}
+           checked
+           {% endif %}
+           hx-get="/inventory/table"
+           hx-target="#inventory-table"
+           hx-swap="innerHTML"
+           hx-include="this">
+    <span>Include Notion inventory</span>
+  </label>
+  <button id="inventory-add-toggle"
+          class="btn-secondary inventory-add-toggle">
+    + Add inventory item
+  </button>
+
+  <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
+    <form id="inventory-add-card"
+          class="inventory-add-form inventory-add-card"
+          hx-post="/inventory"
+          hx-target="#inventory-table"
+          hx-swap="innerHTML">
+
+      <div class="inventory-add-grid">
+        <div class="field">
+          <label>Item name</label>
+          <input type="text"
+                 name="name"
+                 placeholder="e.g. Blue Hoodie"
+                 required>
+        </div>
+
+        <div class="field">
+          <label>Quantity</label>
+          <input type="number"
+                 name="quantity"
+                 min="0"
+                 value="1">
+        </div>
+      </div>
+
+      <div class="inventory-add-actions">
+        <button type="submit" class="btn-primary">
+          + Add item
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const toggleBtn = document.getElementById("inventory-add-toggle");
+    const overlay = document.getElementById("inventory-add-overlay");
+    const card = document.getElementById("inventory-add-card");
+
+    card.addEventListener("submit", () => {
+      overlay.classList.add("is-hidden");
+    });
+
+    toggleBtn.addEventListener("click", () => {
+      overlay.classList.remove("is-hidden");
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (!card.contains(e.target)) {
+        overlay.classList.add("is-hidden");
+      }
+    });
+  </script>
+</div>
+
+<div class="inventory-card">
+  <table class="inventory-table">
+    <thead>
+      <tr>
+        <th>Image<br><small>(click to update)</small></th>
+        <th>Name</th>
+        <th>Barcode</th>
+        <th>Quantity</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody id="inventory-table">
+      <template id="inventory-edit-row">
+        <tr>
+          <td></td>
+
+          <td>
+            <input type="text"
+                   name="name"
+                   hx-post="/inventory/{{ id }}/name"
+                   hx-trigger="change"
+                   hx-include="this">
+          </td>
+
+          <td></td>
+
+          <td>
+            <input type="number"
+                   name="quantity"
+                   min="0"
+                   hx-post="/inventory/{{ id }}/quantity"
+                   hx-trigger="change"
+                   hx-include="this">
+          </td>
+
+          <td></td>
+        </tr>
+      </template>
+
+      <tr hx-get="/inventory/table"
+          hx-trigger="load"
+          hx-target="#inventory-table"
+          hx-swap="innerHTML"
+          hx-include="[name='include_notion']">
+        <td colspan="5" class="loading">
+          Loading inventory…
+        </td>
+      </tr>
+
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
