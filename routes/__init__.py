@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
 from routes.inventory import router as inventory_router
+from routes.plugins import router as plugins_router
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -34,6 +35,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="data/images"), name="media")
 
 app.include_router(inventory_router)
+app.include_router(plugins_router)
 
 
 @app.get("/", response_class=HTMLResponse)

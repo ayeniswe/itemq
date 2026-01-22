@@ -22,7 +22,9 @@
     <form hx-post="/api/plugins/notion/connect"
           hx-target="#plugin-status"
           hx-swap="innerHTML"
-          class="plugin-form">
+          hx-indicator="#notion-connecting"
+          class="plugin-form"
+          id="notion-plugin-form">
 
       <label>
         Notion Token
@@ -34,12 +36,20 @@
         <input type="url" name="database" placeholder="https://notion.so/..." required>
       </label>
 
-      <button type="submit" class="btn-primary">
-        Connect Notion
-      </button>
+      <button type="submit" class="btn-primary">Connect Notion</button>
     </form>
 
-    <div id="plugin-status" class="plugin-status"></div>
+    <div id="notion-connecting" class="notion-progress htmx-indicator" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <div class="notion-progress-text">
+        <p>Connecting to Notion…</p>
+      </div>
+    </div>
+
+    <div id="plugin-status" class="plugin-status"
+         hx-get="/api/plugins/notion/status"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML"></div>
   </div>
 
 </div>
