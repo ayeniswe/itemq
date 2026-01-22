@@ -1,6 +1,8 @@
 <div id="plugin-status"
-     class="plugin-status plugin-status--loading"
+     class="plugin-status{% if state == 'pulling' or state == 'connecting' %} plugin-status--loading{% elif state == 'disconnect' %} plugin-status--disconnect{% elif state == 'error' %} plugin-status--error{% endif %}"
      data-plugin-state="{{ state }}">
+  {% if state == 'pulling' or state == 'connecting' %}
   <span class="plugin-spinner" aria-hidden="true"></span>
+  {% endif %}
   {{ message }}
 </div>

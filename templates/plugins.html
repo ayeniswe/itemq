@@ -59,4 +59,50 @@
 
 </div>
 
+<script>
+  (function () {
+    const notionForm = document.querySelector("[data-plugin-form='notion']");
+
+    if (!notionForm || !window.htmx) return;
+
+    const setStatus = (message, state) => {
+      const target = document.getElementById("plugin-status");
+      if (!target) return;
+
+      const classes = ["plugin-status"];
+      if (state === "disconnect") {
+        classes.push("plugin-status--disconnect");
+      } else if (state === "error") {
+        classes.push("plugin-status--error");
+      } else {
+        classes.push("plugin-status--loading");
+      }
+
+      const spinner = state === "pulling" || state === "connecting"
+        ? '<span class="plugin-spinner" aria-hidden="true"></span>'
+        : "";
+
+      target.className = classes.join(" ");
+      target.dataset.pluginState = state;
+      target.innerHTML = `${spinner}${message}`;
+    };
+
+    notionForm.addEventListener("htmx:beforeRequest", () => {
+      setStatus("Connecting to Notion…", "connecting");
+    });
+
+    notionForm.addEventListener("htmx:afterSwap", (event) => {
+      const statusTarget = event.detail.target;
+      if (!statusTarget || statusTarget.id !== "plugin-status") return;
+
+      const state = statusTarget.dataset.pluginState;
+      if (state === "pulling") {
+        window.setTimeout(() => {
+          setStatus("Disconnect", "disconnect");
+        }, 1200);
+      }
+    });
+  })();
+</script>
+
 {% endblock %}
