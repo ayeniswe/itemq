@@ -59,6 +59,10 @@ body {
   text-decoration: none;
   font-size: 0.95rem;
   transition: background 0.15s ease, transform 0.1s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  cursor: default;
 }
 
 .sidebar-nav a:hover {
@@ -141,13 +145,13 @@ main {
   display: flex;
   gap: 0.75rem;
   align-items: center;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
 }
 
 .card-icon {
@@ -203,7 +207,7 @@ main {
   background: #ffffff;
   border-radius: 14px;
   padding: 1.25rem;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
   overflow-x: auto;
 }
 
@@ -226,14 +230,103 @@ main {
   border-bottom: 1px solid #e5e7eb;
 }
 
+.inventory-image-placeholder {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #f8fafc;
+}
+
+.plus-icon {
+  font-size: 18px;
+  font-weight: 600;
+  color: #94a3b8;
+  line-height: 1;
+}
+
 .inventory-table td {
   padding: 0.75rem;
   border-bottom: 1px solid #f1f5f9;
   color: #111827;
 }
 
+.inventory-row {
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.inventory-row:hover {
+  background: #f8fafc;
+}
+
+.inventory-cell {
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.inventory-input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: linear-gradient(140deg, #ffffff, #f8fafc);
+  font-size: 0.9rem;
+  color: #0f172a;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.inventory-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12), 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.inventory-pill {
+  display: inline-block;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #1f2937;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inventory-pill-barcode {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+
+.inventory-image-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px dashed #e5e7eb;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+}
+
+.inventory-image-upload:hover {
+  border-color: #6366f1;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);
+  transform: translateY(-1px);
+}
+
 .inventory-table tr:hover {
-  background: #f9fafb;
+  background: #f8fafc;
 }
 
 /* Quantity emphasis */
@@ -330,22 +423,29 @@ main {
 .inventory-add-grid .field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  background: linear-gradient(140deg, #ffffff, #f6f8ff);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
 }
 
 .inventory-add-grid label {
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #475569;
+  text-transform: uppercase;
 }
 
 .inventory-add-grid input {
-  padding: 0.6rem 0.75rem;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  font-size: 0.9rem;
-  background: #ffffff;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  padding: 0.35rem 0;
+  border-radius: 10px;
+  border: none;
+  font-size: 1rem;
+  background: transparent;
+  transition: color 0.15s ease;
 }
 
 .inventory-add-grid input::placeholder {
@@ -354,8 +454,7 @@ main {
 
 .inventory-add-grid input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  color: #111827;
 }
 
 /* Adjust grid now that barcode is removed */
@@ -368,12 +467,12 @@ main {
   background: linear-gradient(180deg, #ffffff, #f9fafb);
   border-radius: 18px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .inventory-add-card:hover {
-  box-shadow: 0 16px 40px rgba(0,0,0,0.08);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
 
@@ -382,9 +481,10 @@ main {
   align-items: end;
 }
 
-/* Input card feel */
-.inventory-add-grid input {
-  background: #ffffff;
+.inventory-add-grid .field:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 14px 30px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(140deg, #ffffff, #f1f5ff);
 }
 
 /* Action row */
@@ -399,12 +499,12 @@ main {
   padding: 0.6rem 1rem;
   font-size: 0.85rem;
   border-radius: 12px;
-  box-shadow: 0 6px 14px rgba(99,102,241,0.35);
+  box-shadow: 0 6px 14px rgba(99, 102, 241, 0.35);
 }
 
 .inventory-add-actions .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(99,102,241,0.45);
+  box-shadow: 0 10px 22px rgba(99, 102, 241, 0.45);
 }
 
 /* =========================
@@ -432,7 +532,7 @@ main {
   background: #ffffff;
   border-radius: 14px;
   padding: 1.25rem;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
 .generate-card h3 {
@@ -501,6 +601,7 @@ main {
 .results-card {
   margin-top: 1.5rem;
 }
+
 /* =========================
    Notion Integration
    ========================= */
@@ -545,6 +646,7 @@ main {
   accent-color: #6366f1;
   cursor: pointer;
 }
+
 /* =========================
    Plugins
    ========================= */
@@ -569,7 +671,7 @@ main {
   background: #ffffff;
   border-radius: 14px;
   padding: 1.25rem;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
 .plugin-header {

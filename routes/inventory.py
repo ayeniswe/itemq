@@ -4,7 +4,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi import UploadFile, File
 from pathlib import Path
 import uuid
-import random
 
 from db import (
     add_inventory_item,
@@ -94,8 +93,10 @@ async def update_inventory_item_quantity(
 # -----------------------------
 @router.post("/inventory/{item_id}/image")
 async def update_inventory_item_image(
+    request: Request,
     item_id: int,
     file: UploadFile = File(...),
+    include_notion: bool = Form(False),
 ):
     # Ensure image directory exists
     image_dir = Path("data/images/inventory")
@@ -116,6 +117,11 @@ async def update_inventory_item_image(
         f"inventory/{filename}",
     )
 
-    return {
-        "image": f"/media/inventory/{filename}"
-    }
+    items = list_inventory(include_notion=include_notion)
+    return templates.TemplateResponse(
+        "partials/inventory_rows.html",
+        {
+            "request": request,
+            "items": items,
+        },
+    )
