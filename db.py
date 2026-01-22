@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from pathlib import Path
 from typing import Protocol, Iterable, Optional
@@ -26,6 +27,15 @@ class InventoryDB(Protocol):
     def update_inventory_name(self, item_id: int, name: str) -> None: ...
 
     def update_inventory_image(self, item_id: int, image_path: str) -> None: ...
+
+    def upsert_plugin(
+        self,
+        name: str,
+        enabled: bool,
+        config: Optional[dict],
+    ) -> None: ...
+
+    def get_plugin(self, name: str) -> Optional[dict]: ...
 
 
 # =============================
@@ -109,6 +119,50 @@ class SQLiteInventoryDB:
         )
         self.conn.commit()
 
+    # -------- Plugin Ops --------
+
+    def upsert_plugin(
+        self,
+        name: str,
+        enabled: bool,
+        config: Optional[dict] = None,
+    ) -> None:
+        payload = json.dumps(config or {})
+        existing = self.conn.execute(
+            "SELECT id FROM plugins WHERE name = ? ORDER BY id DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+
+        if existing:
+            self.conn.execute(
+                "UPDATE plugins SET enabled = ?, config = ? WHERE id = ?",
+                (1 if enabled else 0, payload, existing["id"]),
+            )
+        else:
+            self.conn.execute(
+                "INSERT INTO plugins (name, enabled, config) VALUES (?, ?, ?)",
+                (name, 1 if enabled else 0, payload),
+            )
+
+        self.conn.commit()
+
+    def get_plugin(self, name: str) -> Optional[dict]:
+        row = self.conn.execute(
+            "SELECT id, name, enabled, config FROM plugins WHERE name = ?"
+            " ORDER BY id DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "enabled": bool(row["enabled"]),
+            "config": json.loads(row["config"]) if row["config"] else {},
+        }
+
 
 # =============================
 # DB Factory / Singleton
@@ -167,3 +221,15 @@ def update_inventory_name(item_id: int, name: str):
 
 def update_inventory_image(item_id: int, image_path: str):
     get_db().update_inventory_image(item_id, image_path)
+
+
+def upsert_plugin(
+    name: str,
+    enabled: bool,
+    config: Optional[dict] = None,
+):
+    get_db().upsert_plugin(name, enabled, config)
+
+
+def get_plugin(name: str) -> Optional[dict]:
+    return get_db().get_plugin(name)

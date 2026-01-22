@@ -4,12 +4,13 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
 from routes.inventory import router as inventory_router
+from routes.plugins import router as plugins_router
 
 from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 
-from db import init_db
+from db import init_db, get_plugin
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +35,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="data/images"), name="media")
 
 app.include_router(inventory_router)
+app.include_router(plugins_router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -58,4 +60,11 @@ async def inventory(request: Request):
 
 @app.get("/plugins", response_class=HTMLResponse)
 async def plugins(request: Request):
-    return templates.TemplateResponse("plugins.html", {"request": request})
+    notion_plugin = get_plugin("notion")
+    return templates.TemplateResponse(
+        "plugins.html",
+        {
+            "request": request,
+            "notion_plugin": notion_plugin,
+        },
+    )

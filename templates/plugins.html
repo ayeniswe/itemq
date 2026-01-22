@@ -21,8 +21,10 @@
 
     <form hx-post="/api/plugins/notion/connect"
           hx-target="#plugin-status"
-          hx-swap="innerHTML"
-          class="plugin-form">
+          hx-swap="outerHTML"
+          hx-indicator="#notion-connecting"
+          class="plugin-form"
+          data-plugin-form="notion">
 
       <label>
         Notion Token
@@ -31,7 +33,11 @@
 
       <label>
         Database Link
-        <input type="url" name="database" placeholder="https://notion.so/..." required>
+        <input type="url"
+               name="database"
+               placeholder="https://notion.so/..."
+               value="{{ notion_plugin.config.database if notion_plugin }}"
+               required>
       </label>
 
       <button type="submit" class="btn-primary">
@@ -39,7 +45,16 @@
       </button>
     </form>
 
-    <div id="plugin-status" class="plugin-status"></div>
+    <div id="notion-connecting" class="plugin-status plugin-status--loading htmx-indicator">
+      <span class="plugin-spinner" aria-hidden="true"></span>
+      Connecting to Notion…
+    </div>
+    <div id="plugin-status"
+         class="plugin-status{% if notion_plugin and notion_plugin.enabled %} plugin-status--disconnect{% endif %}">
+      {% if notion_plugin and notion_plugin.enabled %}
+        Disconnect
+      {% endif %}
+    </div>
   </div>
 
 </div>

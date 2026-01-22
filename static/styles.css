@@ -733,6 +733,42 @@ main {
   color: #6b7280;
 }
 
+.plugin-status--loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #4338ca;
+}
+
+.plugin-status--disconnect {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.plugin-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  border-top-color: #6366f1;
+  animation: plugin-spin 0.7s linear infinite;
+}
+
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request.htmx-indicator,
+.htmx-request .htmx-indicator {
+  display: inline-flex;
+}
+
+@keyframes plugin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Overlay for add inventory card */
 .inventory-overlay {
   position: fixed;

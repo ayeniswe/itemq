@@ -9,10 +9,6 @@
            id="include-notion-toggle"
            name="include_notion"
            value="true"
-           hx-get="/inventory/table"
-           hx-target="#inventory-table"
-           hx-swap="innerHTML"
-           hx-include="this"
            {% if request.query_params.get('include_notion') %}
            checked
            {% endif %}>
@@ -69,12 +65,7 @@
       </tr>
     </thead>
     <tbody id="inventory-table">
-      <tr data-inventory-table-loader
-          hx-get="/inventory/table"
-          hx-trigger="pref-init"
-          hx-target="#inventory-table"
-          hx-swap="innerHTML"
-          hx-include="[name='include_notion']">
+      <tr>
         <td colspan="5" class="loading">
           Loading inventory…
         </td>
@@ -82,51 +73,4 @@
     </tbody>
   </table>
 </div>
-
-<!-- Cache Include Notion Inventory  -->
-<script>
-  (function () {
-    const STORAGE_KEY = "inventoryIncludeNotion";
-    const toggle = document.getElementById("include-notion-toggle");
-    const tableLoader = document.querySelector("[data-inventory-table-loader]");
-
-    if (!toggle || !tableLoader || !window.htmx) return;
-
-    const savedPref = localStorage.getItem(STORAGE_KEY);
-    if (savedPref !== null) {
-      toggle.checked = savedPref === "true";
-    }
-
-    const requestTable = () => htmx.trigger(tableLoader, "pref-init");
-
-    toggle.addEventListener("change", () => {
-      localStorage.setItem(STORAGE_KEY, String(toggle.checked));
-      requestTable();
-    });
-
-    // Trigger initial load using cached preference
-    requestTable();
-  })();
-</script>
-
-<!-- Toggle Add Item Card -->
-<script>
-  const toggleBtn = document.getElementById("inventory-add-toggle");
-  const overlay = document.getElementById("inventory-add-overlay");
-  const card = document.getElementById("inventory-add-card");
-
-  card.addEventListener("submit", () => {
-    overlay.classList.add("is-hidden");
-  });
-
-  toggleBtn.addEventListener("click", () => {
-    overlay.classList.remove("is-hidden");
-  });
-
-  overlay.addEventListener("click", (e) => {
-    if (!card.contains(e.target)) {
-      overlay.classList.add("is-hidden");
-    }
-  });
-</script>
 {% endblock %}
