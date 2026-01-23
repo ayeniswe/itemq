@@ -1,6 +1,7 @@
 import sqlite3
 from pathlib import Path
 from typing import Protocol, Iterable, Optional
+import json
 
 DEFAULT_DB_NAME = "itemq.db"
 
@@ -26,6 +27,16 @@ class InventoryDB(Protocol):
     def update_inventory_name(self, item_id: int, name: str) -> None: ...
 
     def update_inventory_image(self, item_id: int, image_path: str) -> None: ...
+
+    def delete_inventory_by_source(self, source: str) -> None: ...
+
+    def get_plugin(self, name: str) -> Optional[sqlite3.Row]: ...
+
+    def upsert_plugin(self, name: str, enabled: bool, config: dict | None) -> None: ...
+
+    def update_plugin_enabled(self, name: str, enabled: bool) -> None: ...
+
+    def update_plugin_config(self, name: str, config: dict | None) -> None: ...
 
 
 # =============================
@@ -109,6 +120,50 @@ class SQLiteInventoryDB:
         )
         self.conn.commit()
 
+    def delete_inventory_by_source(self, source: str):
+        self.conn.execute(
+            "DELETE FROM inventory WHERE source = ?",
+            (source,),
+        )
+        self.conn.commit()
+
+    # -------- Plugin Ops --------
+
+    def get_plugin(self, name: str) -> Optional[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT id, name, enabled, config FROM plugins WHERE name = ?",
+            (name,),
+        ).fetchone()
+
+    def upsert_plugin(self, name: str, enabled: bool, config: dict | None) -> None:
+        payload = json.dumps(config) if config is not None else None
+        self.conn.execute(
+            """
+            INSERT INTO plugins (name, enabled, config)
+            VALUES (?, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET
+                enabled = excluded.enabled,
+                config = excluded.config
+            """,
+            (name, int(enabled), payload),
+        )
+        self.conn.commit()
+
+    def update_plugin_enabled(self, name: str, enabled: bool) -> None:
+        self.conn.execute(
+            "UPDATE plugins SET enabled = ? WHERE name = ?",
+            (int(enabled), name),
+        )
+        self.conn.commit()
+
+    def update_plugin_config(self, name: str, config: dict | None) -> None:
+        payload = json.dumps(config) if config is not None else None
+        self.conn.execute(
+            "UPDATE plugins SET config = ? WHERE name = ?",
+            (payload, name),
+        )
+        self.conn.commit()
+
 
 # =============================
 # DB Factory / Singleton
@@ -167,3 +222,23 @@ def update_inventory_name(item_id: int, name: str):
 
 def update_inventory_image(item_id: int, image_path: str):
     get_db().update_inventory_image(item_id, image_path)
+
+
+def delete_inventory_by_source(source: str):
+    get_db().delete_inventory_by_source(source)
+
+
+def get_plugin(name: str) -> Optional[sqlite3.Row]:
+    return get_db().get_plugin(name)
+
+
+def upsert_plugin(name: str, enabled: bool, config: dict | None) -> None:
+    get_db().upsert_plugin(name, enabled, config)
+
+
+def update_plugin_enabled(name: str, enabled: bool) -> None:
+    get_db().update_plugin_enabled(name, enabled)
+
+
+def update_plugin_config(name: str, config: dict | None) -> None:
+    get_db().update_plugin_config(name, config)

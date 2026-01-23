@@ -11,6 +11,7 @@ from db import (
     update_inventory_name,
     update_inventory_quantity,
     update_inventory_image,
+    delete_inventory_by_source,
 )
 from services.barcode import generate_barcode
 
@@ -34,6 +35,12 @@ async def inventory_table(
             "items": items,
         },
     )
+
+
+@router.delete("/inventory/notion")
+async def delete_notion_inventory():
+    delete_inventory_by_source("notion")
+    return {"status": "ok"}
 
 
 # -----------------------------

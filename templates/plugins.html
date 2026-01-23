@@ -16,30 +16,14 @@
     </div>
 
     <p class="plugin-description">
-      Sync generated barcodes directly into a Notion database.
+      Connect your Notion inventory to generate and/or sync barcodes automatically.
     </p>
 
-    <form hx-post="/api/plugins/notion/connect"
-          hx-target="#plugin-status"
-          hx-swap="innerHTML"
-          class="plugin-form">
-
-      <label>
-        Notion Token
-        <input type="password" name="token" placeholder="ntn_••••••••" required>
-      </label>
-
-      <label>
-        Database Link
-        <input type="url" name="database" placeholder="https://notion.so/..." required>
-      </label>
-
-      <button type="submit" class="btn-primary">
-        Connect Notion
-      </button>
-    </form>
-
-    <div id="plugin-status" class="plugin-status"></div>
+    <div id="notion-plugin-body"
+         hx-get="/plugins/notion/status"
+         hx-trigger="load"
+         hx-swap="outerHTML">
+    </div>
   </div>
 
 </div>
