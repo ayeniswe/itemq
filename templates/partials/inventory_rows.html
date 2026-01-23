@@ -26,36 +26,35 @@
   </td>
 
   <td class="inventory-cell">
-    <span class="inventory-pill">
+    <span class="inventory-pill inventory-pill-barcode">
       {{ item.barcode }}
     </span>
   </td>
 
-  <td class="inventory-cell">
-    <input type="text"
-           name="name"
-           value="{{ item.name }}"
-           class="inventory-input"
-           hx-post="/inventory/{{ item.id }}/name"
-           hx-trigger="change"
-           hx-include="this">
-  </td>
+  {% include "partials/inventory_name.html" %}
 
-  <td class="inventory-cell">
-    <input type="number"
-           min="0"
-           name="quantity"
-           value="{{ item.quantity }}"
-           class="inventory-input"
-           hx-post="/inventory/{{ item.id }}/quantity"
-           hx-trigger="change"
-           hx-include="this">
-  </td>
+  {% include "partials/inventory_quantity.html" %}
 
   <td class="inventory-cell inventory-source-cell">
     <span class="source-pill source-{{ item.source }}">
       {{ item.source|capitalize }}
     </span>
+  </td>
+
+  <td class="inventory-cell inventory-actions-cell">
+    {% if item.source != "notion" %}
+      <button class="inventory-delete-btn"
+              hx-delete="/inventory/{{ item.id }}"
+              hx-target="#inventory-table"
+              hx-swap="innerHTML"
+              hx-include="[name='include_notion']">
+        Delete
+      </button>
+    {% else %}
+      <span class="inventory-readonly inventory-muted inventory-notion-hint">
+        Manage in Notion
+      </span>
+    {% endif %}
   </td>
 </tr>
 {% endfor %}

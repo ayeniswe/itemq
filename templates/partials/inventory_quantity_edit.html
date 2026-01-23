@@ -1,0 +1,20 @@
+<td class="inventory-cell">
+<form
+  hx-post="/inventory/{{ item.id }}/quantity"
+  hx-trigger="keyup[key=='Enter'] from:input"
+  hx-target="closest td"
+  hx-swap="outerHTML"
+  hx-validate="true"
+>
+  <input
+    type="number"
+    name="quantity"
+    min="0"
+    value="{{ item.quantity }}"
+    class="inventory-input"
+    autofocus
+    required
+    onkeydown="if (event.key === 'Enter') event.preventDefault()"
+  />
+</form>
+</td>

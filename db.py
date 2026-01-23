@@ -30,6 +30,8 @@ class InventoryDB(Protocol):
 
     def delete_inventory_by_source(self, source: str) -> None: ...
 
+    def delete_inventory_item(self, item_id: int) -> None: ...
+
     def get_plugin(self, name: Literal["notion", "local"]) -> Optional[sqlite3.Row]: ...
 
     def upsert_plugin(self, name: str, enabled: bool, config: dict | None) -> None: ...
@@ -37,6 +39,8 @@ class InventoryDB(Protocol):
     def update_plugin_enabled(self, name: str, enabled: bool) -> None: ...
 
     def update_plugin_config(self, name: str, config: dict | None) -> None: ...
+
+    def get_inventory_item(self, item_id: int) -> Optional[sqlite3.Row]: ...
 
 
 # =============================
@@ -126,6 +130,19 @@ class SQLiteInventoryDB:
             (source,),
         )
         self.conn.commit()
+
+    def delete_inventory_item(self, item_id: int):
+        self.conn.execute(
+            "DELETE FROM inventory WHERE id = ?",
+            (item_id,),
+        )
+        self.conn.commit()
+
+    def get_inventory_item(self, item_id: int):
+        return self.conn.execute(
+            "SELECT id, name, barcode, quantity, image_path, source, created_at FROM inventory WHERE id = ?",
+            (item_id,),
+        ).fetchone()
 
     # -------- Plugin Ops --------
 
@@ -228,6 +245,10 @@ def delete_inventory_by_source(source: str):
     get_db().delete_inventory_by_source(source)
 
 
+def delete_inventory_item(item_id: int):
+    get_db().delete_inventory_item(item_id)
+
+
 def get_plugin(name: Literal["notion", "local"]) -> sqlite3.Row:
     return get_db().get_plugin(name)
 
@@ -242,3 +263,7 @@ def update_plugin_enabled(name: str, enabled: bool) -> None:
 
 def update_plugin_config(name: str, config: dict | None) -> None:
     get_db().update_plugin_config(name, config)
+
+
+def get_inventory_item(item_id: int):
+    return get_db().get_inventory_item(item_id)

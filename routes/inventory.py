@@ -12,7 +12,10 @@ from db import (
     update_inventory_quantity,
     update_inventory_image,
     delete_inventory_by_source,
+    delete_inventory_item,
+    get_inventory_item,
 )
+from model import InventoryItem
 from services.barcode import generate_barcode
 
 router = APIRouter()
@@ -41,6 +44,23 @@ async def inventory_table(
 async def delete_notion_inventory():
     delete_inventory_by_source("notion")
     return {"status": "ok"}
+
+
+@router.delete("/inventory/{item_id}", response_class=HTMLResponse)
+async def delete_inventory_item_row(
+    request: Request,
+    item_id: int,
+    include_notion: bool = Form(False),
+):
+    delete_inventory_item(item_id)
+    items = list_inventory(include_notion=include_notion)
+    return templates.TemplateResponse(
+        "partials/inventory_rows.html",
+        {
+            "request": request,
+            "items": items,
+        },
+    )
 
 
 # -----------------------------
@@ -77,11 +97,19 @@ async def create_inventory_item(
 # -----------------------------
 @router.post("/inventory/{item_id}/name")
 async def update_inventory_item_name(
+    request: Request,
     item_id: int,
     name: str = Form(...),
 ):
     update_inventory_name(item_id, name)
-    return ""
+    item = InventoryItem.from_row(get_inventory_item(item_id))
+    return templates.TemplateResponse(
+        "partials/inventory_name.html",
+        {
+            "request": request,
+            "item": item,
+        },
+    )
 
 
 # -----------------------------
@@ -89,11 +117,19 @@ async def update_inventory_item_name(
 # -----------------------------
 @router.post("/inventory/{item_id}/quantity")
 async def update_inventory_item_quantity(
+    request: Request,
     item_id: int,
     quantity: int = Form(...),
 ):
     update_inventory_quantity(item_id, quantity)
-    return ""
+    item = InventoryItem.from_row(get_inventory_item(item_id))
+    return templates.TemplateResponse(
+        "partials/inventory_quantity.html",
+        {
+            "request": request,
+            "item": item,
+        },
+    )
 
 
 # -----------------------------
@@ -132,4 +168,28 @@ async def update_inventory_item_image(
             "request": request,
             "items": items,
         },
+    )
+
+
+@router.get("/inventory/{item_id}/name/edit", response_class=HTMLResponse)
+async def edit_inventory_name_cell(
+    request: Request,
+    item_id: int,
+):
+    item = InventoryItem.from_row(get_inventory_item(item_id))
+    return templates.TemplateResponse(
+        "partials/inventory_name_edit.html",
+        {"request": request, "item": item},
+    )
+
+
+@router.get("/inventory/{item_id}/quantity/edit", response_class=HTMLResponse)
+async def edit_inventory_quantity_cell(
+    request: Request,
+    item_id: int,
+):
+    item = InventoryItem.from_row(get_inventory_item(item_id))
+    return templates.TemplateResponse(
+        "partials/inventory_quantity_edit.html",
+        {"request": request, "item": item},
     )
