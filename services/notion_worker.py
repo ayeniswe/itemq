@@ -53,8 +53,7 @@ def connect_to_notion(token: str, database_url: str) -> Tuple[str, str]:
     )
 
     setattr(validate_notion_schema, "_notion_token", token)
-    setattr(fetch_database_rows, "_notion_token", token)
-
+    
     return database_id, db_name
 
 
@@ -114,15 +113,7 @@ def validate_notion_schema(database_id: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def fetch_database_rows(database_id: str) -> Iterable[dict]:
-    # Requires token injected by connect_to_notion
-    token = None
-    if hasattr(fetch_database_rows, "_notion_token"):
-        token = getattr(fetch_database_rows, "_notion_token")
-
-    if token is None:
-        raise RuntimeError("Notion token not available for row fetching")
-
+def fetch_database_rows(token: str, database_id: str) -> Iterable[dict]:
     notion = NotionClient(auth=token)
 
     # Retrieve database and all data sources

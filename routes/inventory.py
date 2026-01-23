@@ -49,6 +49,7 @@ async def delete_notion_inventory():
 @router.post("/inventory", response_class=HTMLResponse)
 async def create_inventory_item(
     request: Request,
+    include_notion: bool = Form(False),
     name: str = Form(...),
     quantity: int = Form(1),
 ):
@@ -61,7 +62,7 @@ async def create_inventory_item(
     )
 
     # Re-render table after insert
-    items = list_inventory()
+    items = list_inventory(include_notion)
     return templates.TemplateResponse(
         "partials/inventory_rows.html",
         {

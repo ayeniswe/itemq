@@ -14,6 +14,7 @@ from db import (
     delete_inventory_by_source,
     add_inventory_item,
 )
+from model import Plugin
 from services.notion_worker import (
     NotionWorker,
     connect_to_notion,
@@ -47,7 +48,7 @@ def _start_notion_worker(plugin: dict | None) -> None:
     def worker_task(stop_event):
         errored = False
         try:
-            for row in fetch_database_rows(plugin["config"]["database_id"]):
+            for row in fetch_database_rows(plugin["config"]["token"], plugin["config"]["database_id"]):
                 if stop_event.is_set():
                     break
 
@@ -62,7 +63,7 @@ def _start_notion_worker(plugin: dict | None) -> None:
             elif errored:
                 if _notion_status["state"] != "disconnected":
                     _notion_status["message"] = (
-                        "Sync failed. Please check your Notion connection and try again."
+                        "Sync failed. Internal Error"
                     )
                 _notion_status["state"] = "idle"
             else:
@@ -72,11 +73,10 @@ def _start_notion_worker(plugin: dict | None) -> None:
                 )
 
     _notion_worker.start(worker_task)
-
-
+    
 @router.get("/plugins/notion/status", response_class=HTMLResponse)
 async def notion_status(request: Request):
-    plugin = _serialize_plugin_row(get_plugin("notion"))
+    plugin = Plugin.from_row(get_plugin("notion"))
     
     if _notion_status["state"] in {"idle", "disconnected"}:
         _notion_worker.stop()
