@@ -14,6 +14,7 @@ from db import (
     delete_inventory_by_source,
     add_inventory_item,
 )
+from model import Plugin
 from services.notion_worker import (
     NotionWorker,
     connect_to_notion,
@@ -45,26 +46,39 @@ def _start_notion_worker(plugin: dict | None) -> None:
         return
 
     def worker_task(stop_event):
-        while not stop_event.is_set():
-            _notion_status["state"] = "fetching"
-            _notion_status["message"] = "Fetching database rows…"
-            for row in fetch_database_rows(plugin["config"]["database_id"]):
+        errored = False
+        try:
+            for row in fetch_database_rows(plugin["config"]["token"], plugin["config"]["database_id"]):
                 if stop_event.is_set():
                     break
 
                 add_inventory_item(**row, source="notion")
-
-            _notion_status["state"] = "idle"
-            stop_event.wait(10)
+        except Exception:
+            errored = True
+        finally:
+            if stop_event.is_set():
+                if _notion_status["state"] != "disconnected":
+                    _notion_status["message"] = "Sync canceled."
+                _notion_status["state"] = "idle"
+            elif errored:
+                if _notion_status["state"] != "disconnected":
+                    _notion_status["message"] = (
+                        "Sync failed. Internal Error"
+                    )
+                _notion_status["state"] = "idle"
+            else:
+                _notion_status["state"] = "idle"
+                _notion_status["message"] = (
+                    "All set! Your Notion inventory is up to date."
+                )
 
     _notion_worker.start(worker_task)
-
-
+    
 @router.get("/plugins/notion/status", response_class=HTMLResponse)
 async def notion_status(request: Request):
-    plugin = _serialize_plugin_row(get_plugin("notion"))
+    plugin = Plugin.from_row(get_plugin("notion"))
     
-    if _notion_status["state"] == "idle":
+    if _notion_status["state"] in {"idle", "disconnected"}:
         _notion_worker.stop()
 
     return templates.TemplateResponse(
@@ -104,7 +118,7 @@ async def notion_connect(
             upsert_plugin("notion", True, config)
             plugin = _serialize_plugin_row(get_plugin("notion"))
             _notion_status["state"] = "fetching"
-            _notion_status["message"] = "Fetching database rows…"
+            _notion_status["message"] = "Syncing Notion inventory…"
             _start_notion_worker(plugin)
     except notion_client.APIResponseError as e:
         error = str(e)
@@ -131,15 +145,19 @@ async def notion_connect(
     )
 
 
-@router.patch("/plugins/notion", response_class=HTMLResponse)
-async def notion_toggle(request: Request, enabled: bool = Form(False)):
-    update_plugin_enabled("notion", enabled)
-    if enabled:
-        plugin = _serialize_plugin_row(get_plugin("notion"))
-        _start_notion_worker(plugin)
-    else:
-        _notion_worker.stop()
+@router.post("/plugins/notion/sync", response_class=HTMLResponse)
+async def notion_sync(request: Request):
+    plugin = _serialize_plugin_row(get_plugin("notion"))
+    if not plugin or not plugin.get("config"):
         _notion_status["state"] = "idle"
+        _notion_status["message"] = "Connect Notion to start syncing."
+    elif _notion_worker.running:
+        _notion_status["state"] = "fetching"
+        _notion_status["message"] = "Sync already in progress…"
+    else:
+        _notion_status["state"] = "fetching"
+        _notion_status["message"] = "Syncing Notion inventory…"
+        _start_notion_worker(plugin)
     plugin = _serialize_plugin_row(get_plugin("notion"))
     return templates.TemplateResponse(
         "partials/notion_status.html",
@@ -158,7 +176,7 @@ async def notion_disconnect(request: Request):
     update_plugin_config("notion", None)
     update_plugin_enabled("notion", False)
     delete_inventory_by_source("notion")
-    _notion_status["state"] = "idle"
+    _notion_status["state"] = "disconnected"
     _notion_status["message"] = "Notion disconnected."
     plugin = _serialize_plugin_row(get_plugin("notion"))
     return templates.TemplateResponse(

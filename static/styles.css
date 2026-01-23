@@ -811,14 +811,12 @@ main {
   word-break: break-word;
 }
 
-.notion-toggle {
+.notion-sync {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: #f8fafc;
-  padding: 10px 12px;
-  border-radius: 12px;
+}
+
+.notion-sync .btn-secondary {
+  width: 100%;
 }
 
 .notion-worker-status {

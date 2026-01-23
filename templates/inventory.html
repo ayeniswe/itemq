@@ -28,7 +28,8 @@
           class="inventory-add-form inventory-add-card"
           hx-post="/inventory"
           hx-target="#inventory-table"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          hx-include="[name='include_notion']">
 
       <div class="inventory-add-grid">
         <div class="field">
@@ -111,22 +112,27 @@
 
 <!-- Toggle Add Item Card -->
 <script>
-  const toggleBtn = document.getElementById("inventory-add-toggle");
-  const overlay = document.getElementById("inventory-add-overlay");
-  const card = document.getElementById("inventory-add-card");
+  (function () {
+    const toggleBtn = document.getElementById("inventory-add-toggle");
+    const overlay = document.getElementById("inventory-add-overlay");
+    const card = document.getElementById("inventory-add-card");
 
-  card.addEventListener("submit", () => {
-    overlay.classList.add("is-hidden");
-  });
+    if (!toggleBtn || !overlay || !card) return;
 
-  toggleBtn.addEventListener("click", () => {
-    overlay.classList.remove("is-hidden");
-  });
+    toggleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      overlay.classList.toggle("is-hidden");
+    });
 
-  overlay.addEventListener("click", (e) => {
-    if (!card.contains(e.target)) {
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        overlay.classList.add("is-hidden");
+      }
+    });
+
+    card.addEventListener("submit", () => {
       overlay.classList.add("is-hidden");
-    }
-  });
+    });
+  })();
 </script>
 {% endblock %}
