@@ -45,16 +45,25 @@ def _start_notion_worker(plugin: dict | None) -> None:
         return
 
     def worker_task(stop_event):
+        errored = False
         try:
             for row in fetch_database_rows(plugin["config"]["database_id"]):
                 if stop_event.is_set():
                     break
 
                 add_inventory_item(**row, source="notion")
+        except Exception:
+            errored = True
         finally:
             if stop_event.is_set():
                 if _notion_status["state"] != "disconnected":
                     _notion_status["message"] = "Sync canceled."
+                _notion_status["state"] = "idle"
+            elif errored:
+                if _notion_status["state"] != "disconnected":
+                    _notion_status["message"] = (
+                        "Sync failed. Please check your Notion connection and try again."
+                    )
                 _notion_status["state"] = "idle"
             else:
                 _notion_status["state"] = "idle"
