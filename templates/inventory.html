@@ -59,29 +59,32 @@
 </div>
 
 <div class="inventory-card">
-  <table class="inventory-table">
-    <thead>
-      <tr>
-        <th>Image</th>
-        <th>Name</th>
-        <th>Barcode</th>
-        <th>Quantity</th>
-        <th>Source</th>
-      </tr>
-    </thead>
-    <tbody id="inventory-table">
-      <tr data-inventory-table-loader
-          hx-get="/inventory/table"
-          hx-trigger="pref-init"
-          hx-target="#inventory-table"
-          hx-swap="innerHTML"
-          hx-include="[name='include_notion']">
-        <td colspan="5" class="loading">
-          Loading inventory…
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="inventory-table-wrapper">
+    <table class="inventory-table">
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Barcode</th>
+          <th>Quantity</th>
+          <th>Source</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="inventory-table">
+        <tr data-inventory-table-loader
+            hx-get="/inventory/table"
+            hx-trigger="pref-init"
+            hx-target="#inventory-table"
+            hx-swap="innerHTML"
+            hx-include="[name='include_notion']">
+          <td colspan="6" class="loading">
+            Loading inventory…
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <!-- Cache Include Notion Inventory  -->

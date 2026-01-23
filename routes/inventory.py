@@ -12,6 +12,7 @@ from db import (
     update_inventory_quantity,
     update_inventory_image,
     delete_inventory_by_source,
+    delete_inventory_item,
 )
 from services.barcode import generate_barcode
 
@@ -41,6 +42,23 @@ async def inventory_table(
 async def delete_notion_inventory():
     delete_inventory_by_source("notion")
     return {"status": "ok"}
+
+
+@router.delete("/inventory/{item_id}", response_class=HTMLResponse)
+async def delete_inventory_item_row(
+    request: Request,
+    item_id: int,
+    include_notion: bool = Form(False),
+):
+    delete_inventory_item(item_id)
+    items = list_inventory(include_notion=include_notion)
+    return templates.TemplateResponse(
+        "partials/inventory_rows.html",
+        {
+            "request": request,
+            "items": items,
+        },
+    )
 
 
 # -----------------------------

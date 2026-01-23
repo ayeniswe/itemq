@@ -30,6 +30,8 @@ class InventoryDB(Protocol):
 
     def delete_inventory_by_source(self, source: str) -> None: ...
 
+    def delete_inventory_item(self, item_id: int) -> None: ...
+
     def get_plugin(self, name: Literal["notion", "local"]) -> Optional[sqlite3.Row]: ...
 
     def upsert_plugin(self, name: str, enabled: bool, config: dict | None) -> None: ...
@@ -124,6 +126,13 @@ class SQLiteInventoryDB:
         self.conn.execute(
             "DELETE FROM inventory WHERE source = ?",
             (source,),
+        )
+        self.conn.commit()
+
+    def delete_inventory_item(self, item_id: int):
+        self.conn.execute(
+            "DELETE FROM inventory WHERE id = ?",
+            (item_id,),
         )
         self.conn.commit()
 
@@ -226,6 +235,10 @@ def update_inventory_image(item_id: int, image_path: str):
 
 def delete_inventory_by_source(source: str):
     get_db().delete_inventory_by_source(source)
+
+
+def delete_inventory_item(item_id: int):
+    get_db().delete_inventory_item(item_id)
 
 
 def get_plugin(name: Literal["notion", "local"]) -> sqlite3.Row:

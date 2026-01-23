@@ -208,7 +208,12 @@ main {
   border-radius: 14px;
   padding: 1.25rem;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-  overflow-x: auto;
+  overflow: hidden;
+}
+
+.inventory-table-wrapper {
+  max-height: 60vh;
+  overflow: auto;
 }
 
 /* Table */
@@ -329,17 +334,54 @@ main {
   background: #f8fafc;
 }
 
-/* Quantity emphasis */
-.inventory-table td:last-child {
-  font-weight: 500;
-}
-
 /* Image cell */
 .inventory-table img {
   width: 36px;
   height: 36px;
   border-radius: 8px;
   object-fit: cover;
+}
+
+.inventory-readonly {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.inventory-muted {
+  color: #94a3b8;
+}
+
+.inventory-actions-cell {
+  text-align: right;
+}
+
+.inventory-delete-btn {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.inventory-delete-btn:hover {
+  border-color: #fca5a5;
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.15);
+  transform: translateY(-1px);
 }
 
 /* Toggle under Inventory header */
