@@ -147,6 +147,7 @@ async def notion_connect(
 
 @router.post("/plugins/notion/sync", response_class=HTMLResponse)
 async def notion_sync(request: Request):
+    delete_inventory_by_source("notion") # Since things can go stale need to do this
     plugin = _serialize_plugin_row(get_plugin("notion"))
     if not plugin or not plugin.get("config"):
         _notion_status["state"] = "idle"
