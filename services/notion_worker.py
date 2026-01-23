@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import threading
 import time
 from typing import Callable, Iterable, Tuple
 from notion_client import Client as NotionClient, extract_database_id
+
+from services.barcode import generate_barcode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -165,6 +170,22 @@ def fetch_database_rows(database_id: str) -> Iterable[dict]:
                     rt.get("plain_text", "")
                     for rt in barcode_parts
                 )
+                if not barcode.strip():
+                    barcode = generate_barcode()
+                    property_payload = _build_barcode_property(barcode_prop, barcode)
+                    try:
+                        notion.pages.update(
+                            page_id=row.get("id"),
+                            properties={
+                                "Barcode": property_payload,
+                            },
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to update Notion barcode for row %s: %s",
+                            row.get("id"),
+                            exc,
+                        )
 
                 name_prop = props.get("Name", {})
                 name_parts = (
@@ -187,3 +208,26 @@ def fetch_database_rows(database_id: str) -> Iterable[dict]:
 
             if not query.get("has_more"):
                 break
+
+
+def _build_barcode_property(barcode_prop: dict, barcode: str) -> dict:
+    prop_type = barcode_prop.get("type")
+    if prop_type == "title":
+        return {
+            "title": [
+                {
+                    "text": {
+                        "content": barcode,
+                    }
+                }
+            ]
+        }
+    return {
+        "rich_text": [
+            {
+                "text": {
+                    "content": barcode,
+                }
+            }
+        ]
+    }
