@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+import notion_client
 
 from db import (
     get_plugin,
@@ -11,6 +12,7 @@ from db import (
     update_plugin_enabled,
     update_plugin_config,
     delete_inventory_by_source,
+    add_inventory_item,
 )
 from services.notion_worker import (
     NotionWorker,
@@ -46,17 +48,25 @@ def _start_notion_worker(plugin: dict | None) -> None:
         while not stop_event.is_set():
             _notion_status["state"] = "fetching"
             _notion_status["message"] = "Fetching database rows…"
-            fetch_database_rows(plugin["config"]["database_id"])
+            for row in fetch_database_rows(plugin["config"]["database_id"]):
+                if stop_event.is_set():
+                    break
+
+                add_inventory_item(**row, source="notion")
+
             _notion_status["state"] = "idle"
-            _notion_status["message"] = "Notion sync is up to date."
             stop_event.wait(10)
 
     _notion_worker.start(worker_task)
 
 
-@router.get("/api/plugins/notion/status", response_class=HTMLResponse)
+@router.get("/plugins/notion/status", response_class=HTMLResponse)
 async def notion_status(request: Request):
     plugin = _serialize_plugin_row(get_plugin("notion"))
+    
+    if _notion_status["state"] == "idle":
+        _notion_worker.stop()
+
     return templates.TemplateResponse(
         "partials/notion_status.html",
         {
@@ -68,16 +78,16 @@ async def notion_status(request: Request):
     )
 
 
-@router.post("/api/plugins/notion/connect", response_class=HTMLResponse)
+@router.post("/plugins/notion/connect", response_class=HTMLResponse)
 async def notion_connect(
     request: Request,
     token: str = Form(...),
-    database: str = Form(...),
+    database_url: str = Form(...),
 ):
     error_message = None
 
     try:
-        database_id, database_url = connect_to_notion(token, database)
+        database_id, db_name = connect_to_notion(token, database_url)
         schema_ok, schema_error = validate_notion_schema(database_id)
         if not schema_ok:
             error_message = (
@@ -87,7 +97,8 @@ async def notion_connect(
         else:
             config = {
                 "token": token,
-                "database": database_url,
+                "database_name": db_name,
+                "database_url": database_url,
                 "database_id": database_id,
             }
             upsert_plugin("notion", True, config)
@@ -95,8 +106,16 @@ async def notion_connect(
             _notion_status["state"] = "fetching"
             _notion_status["message"] = "Fetching database rows…"
             _start_notion_worker(plugin)
+    except notion_client.APIResponseError as e:
+        error = str(e)
+        if "API token" in error:
+            error_message = error.replace("API", "Notion")
+        elif "valid uuid" in error:
+            error_message = "Database link is invalid"
+        else:
+            error_message = "Unknown error"
     except Exception:
-        error_message = "Unable to connect. Please check your Notion credentials and try again."
+        error_message = "Unknown error"
 
     plugin = _serialize_plugin_row(get_plugin("notion"))
 
@@ -112,7 +131,7 @@ async def notion_connect(
     )
 
 
-@router.post("/api/plugins/notion/toggle", response_class=HTMLResponse)
+@router.patch("/plugins/notion", response_class=HTMLResponse)
 async def notion_toggle(request: Request, enabled: bool = Form(False)):
     update_plugin_enabled("notion", enabled)
     if enabled:
@@ -121,7 +140,6 @@ async def notion_toggle(request: Request, enabled: bool = Form(False)):
     else:
         _notion_worker.stop()
         _notion_status["state"] = "idle"
-        _notion_status["message"] = "Notion sync paused."
     plugin = _serialize_plugin_row(get_plugin("notion"))
     return templates.TemplateResponse(
         "partials/notion_status.html",
@@ -134,7 +152,7 @@ async def notion_toggle(request: Request, enabled: bool = Form(False)):
     )
 
 
-@router.post("/api/plugins/notion/disconnect", response_class=HTMLResponse)
+@router.post("/plugins/notion/disconnect", response_class=HTMLResponse)
 async def notion_disconnect(request: Request):
     _notion_worker.stop()
     update_plugin_config("notion", None)

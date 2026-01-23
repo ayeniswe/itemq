@@ -1,46 +1,87 @@
-<div class="notion-status" id="notion-status">
-  {% if error_message %}
-    <div class="notion-alert" role="alert">
-      {{ error_message }}
-    </div>
-  {% elif status_message %}
-    <div class="notion-progress">
-      {% if worker_running %}
-        <span class="spinner" aria-hidden="true"></span>
-      {% endif %}
-      <div class="notion-progress-text">
-        <p>{{ status_message }}</p>
-      </div>
-    </div>
-  {% endif %}
-
+<div class="notion-status"
+     id="notion-plugin-body"
+     {% if worker_running %}
+     hx-get="/plugins/notion/status"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
   {% if plugin and plugin.config %}
+    {% if error_message %}
+      <div class="notion-alert" role="alert">
+        {{ error_message }}
+      </div>
+    {% elif status_message %}
+      <div class="notion-progress">
+        {% if worker_running %}
+          <span class="spinner" aria-hidden="true"></span>
+          <div class="notion-progress-text">
+            <p>{{ status_message }}</p>
+          </div>
+        {% else %}
+          <div class="notion-progress-text">
+            <p>Sync Complete ✅</p>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
     <div class="notion-connected">
-      <p class="notion-connected-title">Connected to Notion</p>
-      <p class="notion-connected-detail">{{ plugin.config.database }}</p>
+      <p class="notion-connected-title">Connected to Notion Database</p>
+      <p class="notion-connected-detail notion-connected-detail--wrap">
+        {{ plugin.config.database_name }}
+      </p>
     </div>
 
     <form class="notion-toggle"
-          hx-post="/api/plugins/notion/toggle"
-          hx-target="#plugin-status"
+          hx-patch="/plugins/notion"
+          hx-trigger="change from:input"
+          hx-target="#notion-plugin-body"
           hx-swap="innerHTML">
       <label class="notion-checkbox">
         <input type="checkbox" name="enabled" {% if plugin.enabled %}checked{% endif %}>
-        <span>Enable sync worker</span>
+        <span>Enabled</span>
       </label>
-      {% if worker_running %}
-        <span class="notion-worker-status">Worker running</span>
-      {% else %}
-        <span class="notion-worker-status is-muted">Worker paused</span>
-      {% endif %}
     </form>
 
     <form class="notion-disconnect"
-          hx-post="/api/plugins/notion/disconnect"
+          hx-post="/plugins/notion/disconnect"
           hx-confirm="Disconnecting removes stored Notion credentials and imported inventory. Continue?"
-          hx-target="#plugin-status"
+          hx-target="#notion-plugin-body"
           hx-swap="innerHTML">
       <button class="btn-danger" type="submit">Disconnect Notion</button>
     </form>
+  {% else %}
+    {% if error_message %}
+      <div class="notion-alert" role="alert">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    <form hx-post="/plugins/notion/connect"
+          hx-target="#notion-plugin-body"
+          hx-swap="innerHTML"
+          hx-indicator="#notion-connecting"
+          class="plugin-form"
+          id="notion-plugin-form">
+
+      <label>
+        Notion Token
+        <input type="password" name="token" placeholder="ntn_••••••••" required>
+      </label>
+
+      <label>
+        Database Link
+        <input type="url" name="database_url" placeholder="https://notion.so/..." required>
+      </label>
+
+      <button type="submit" class="btn-primary">Connect</button>
+    </form>
+
+    <div id="notion-connecting" class="notion-progress htmx-indicator" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <div class="notion-progress-text">
+        <p>Connecting to Notion…</p>
+      </div>
+    </div>
   {% endif %}
 </div>

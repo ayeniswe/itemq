@@ -784,6 +784,8 @@ main {
   border-radius: 12px;
   color: #b91c1c;
   font-weight: 600;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .notion-connected {
@@ -803,6 +805,10 @@ main {
   margin: 0;
   font-size: 13px;
   color: #475569;
+}
+
+.notion-connected-detail--wrap {
+  word-break: break-word;
 }
 
 .notion-toggle {
