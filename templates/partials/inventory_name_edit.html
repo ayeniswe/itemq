@@ -1,0 +1,19 @@
+<td class="inventory-cell">
+  <form
+    hx-post="/inventory/{{ item.id }}/name"
+    hx-trigger="blur from:input, keyup[key=='Enter'] from:input"
+    hx-target="closest td"
+    hx-swap="outerHTML"
+    hx-validate="true"
+  >
+    <input
+      type="text"
+      name="name"
+      value="{{ item.name }}"
+      class="inventory-input"
+      autofocus
+      onkeydown="if (event.key === 'Enter') event.preventDefault()"
+      required
+    />
+  </form>
+</td>

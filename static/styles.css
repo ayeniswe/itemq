@@ -363,7 +363,8 @@ main {
 }
 
 .inventory-actions-cell {
-  text-align: right;
+  padding: 0.5rem;
+  text-align: left;
 }
 
 .inventory-delete-btn {

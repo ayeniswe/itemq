@@ -40,6 +40,8 @@ class InventoryDB(Protocol):
 
     def update_plugin_config(self, name: str, config: dict | None) -> None: ...
 
+    def get_inventory_item(self, item_id: int) -> Optional[sqlite3.Row]: ...
+
 
 # =============================
 # SQLite Implementation
@@ -135,6 +137,12 @@ class SQLiteInventoryDB:
             (item_id,),
         )
         self.conn.commit()
+
+    def get_inventory_item(self, item_id: int):
+        return self.conn.execute(
+            "SELECT id, name, barcode, quantity, image_path, source, created_at FROM inventory WHERE id = ?",
+            (item_id,),
+        ).fetchone()
 
     # -------- Plugin Ops --------
 
@@ -255,3 +263,7 @@ def update_plugin_enabled(name: str, enabled: bool) -> None:
 
 def update_plugin_config(name: str, config: dict | None) -> None:
     get_db().update_plugin_config(name, config)
+
+
+def get_inventory_item(item_id: int):
+    return get_db().get_inventory_item(item_id)
