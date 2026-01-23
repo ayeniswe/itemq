@@ -14,14 +14,10 @@
       <div class="notion-progress">
         {% if worker_running %}
           <span class="spinner" aria-hidden="true"></span>
-          <div class="notion-progress-text">
-            <p>{{ status_message }}</p>
-          </div>
-        {% else %}
-          <div class="notion-progress-text">
-            <p>Sync Complete ✅</p>
-          </div>
         {% endif %}
+        <div class="notion-progress-text">
+          <p>{{ status_message }}</p>
+        </div>
       </div>
     {% endif %}
 
@@ -32,15 +28,11 @@
       </p>
     </div>
 
-    <form class="notion-toggle"
-          hx-patch="/plugins/notion"
-          hx-trigger="change from:input"
+    <form class="notion-sync"
+          hx-post="/plugins/notion/sync"
           hx-target="#notion-plugin-body"
           hx-swap="innerHTML">
-      <label class="notion-checkbox">
-        <input type="checkbox" name="enabled" {% if plugin.enabled %}checked{% endif %}>
-        <span>Enabled</span>
-      </label>
+      <button class="btn-secondary" type="submit">Sync now</button>
     </form>
 
     <form class="notion-disconnect"
