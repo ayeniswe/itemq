@@ -674,25 +674,38 @@ main {
 .barcode-inventory-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.75rem;
   color: #6b7280;
   margin-bottom: 0.5rem;
 }
 
-.barcode-inventory-list {
+.barcode-inventory-actions {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
-  max-height: 320px;
-  overflow: auto;
+}
+
+.btn-select-all {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.7rem;
+}
+
+.barcode-inventory-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  max-height: 520px;
+  overflow-y: auto;
   padding-right: 0.25rem;
 }
 
 .barcode-inventory-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   padding: 0.5rem 0.6rem;
   border-radius: 10px;
   background: #ffffff;
@@ -702,6 +715,12 @@ main {
 
 .barcode-inventory-row input {
   accent-color: #6366f1;
+}
+
+.barcode-item-checkbox {
+  justify-self: start;
+  align-self: center;
+  margin: 0;
 }
 
 .barcode-inventory-meta {
@@ -741,6 +760,9 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
+  max-height: 720px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .barcode-card {
@@ -771,6 +793,14 @@ main {
   padding: 0.5rem;
   background: #f8fafc;
   border-radius: 10px;
+  width: 100%;
+}
+
+.barcode-art img {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .barcode-card-footer {
@@ -817,6 +847,36 @@ main {
   border: 1px dashed #e5e7eb;
   color: #6b7280;
   font-size: 0.85rem;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #barcode-preview,
+  #barcode-preview * {
+    visibility: visible;
+  }
+
+  #barcode-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #ffffff;
+  }
+
+  .barcode-preview-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .barcode-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
 
 /* =========================

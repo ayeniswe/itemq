@@ -2,13 +2,13 @@
 
 <div class="generate-header">
   <h1>Generate Barcodes</h1>
-  <p class="subtitle">Select inventory items, preview barcodes, and confirm labels.</p>
+  <p class="subtitle">Select inventory items, print barcodes, and confirm labels.</p>
 </div>
 
 <div class="generate-grid generate-grid-wide">
   <div class="generate-card">
     <h3>Inventory Selection</h3>
-    <p class="card-hint">Choose items and a barcode style to preview.</p>
+    <p class="card-hint">Choose items and a barcode style to print.</p>
 
     <form id="barcode-selection"
           class="generate-form barcode-selection-form"
@@ -31,7 +31,9 @@
       {% include "partials/barcode_inventory_list.html" %}
 
       <div class="generate-actions">
-        <button type="submit" class="btn-secondary">Preview</button>
+        <button type="button" class="btn-secondary" onclick="window.print()">
+          Print
+        </button>
         <button type="button"
                 class="btn-primary"
                 hx-post="/generate/confirm"
@@ -58,11 +60,45 @@
 
   <div class="generate-card">
     <h3>Preview</h3>
-    <p class="card-hint">Confirm barcode output before saving.</p>
+    <p class="card-hint">Preview barcode output before saving.</p>
     <div id="barcode-preview" class="results-card">
       {% include "partials/barcode_preview.html" %}
     </div>
   </div>
 </div>
+
+<script>
+  const updateSelectAllLabel = () => {
+    const selectAllButton = document.getElementById("select-all-items");
+    if (!selectAllButton) return;
+    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
+    const hasUnchecked = checkboxes.some((checkbox) => !checkbox.checked);
+    selectAllButton.textContent = hasUnchecked ? "Select all" : "Clear all";
+    selectAllButton.disabled = checkboxes.length === 0;
+  };
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id !== "select-all-items") return;
+    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
+    const shouldSelect = checkboxes.some((checkbox) => !checkbox.checked);
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = shouldSelect;
+      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    updateSelectAllLabel();
+  });
+
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.classList.contains("barcode-item-checkbox")) return;
+    updateSelectAllLabel();
+  });
+
+  document.addEventListener("DOMContentLoaded", updateSelectAllLabel);
+  document.addEventListener("htmx:afterSwap", updateSelectAllLabel);
+</script>
 
 {% endblock %}
