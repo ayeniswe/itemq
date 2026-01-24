@@ -87,6 +87,13 @@
   </div>
 </div>
 
+<dialog id="inventory-image-modal" class="inventory-image-modal">
+  <button type="button" class="inventory-image-modal-close" aria-label="Close image">
+    ✕
+  </button>
+  <img alt="">
+</dialog>
+
 <!-- Cache Include Notion Inventory  -->
 <script>
   (function () {
@@ -110,6 +117,53 @@
 
     // Trigger initial load using cached preference
     requestTable();
+  })();
+</script>
+
+<!-- Inventory image zoom -->
+<script>
+  (function () {
+    const modal = document.getElementById("inventory-image-modal");
+    if (!modal) return;
+
+    const modalImage = modal.querySelector("img");
+    const closeButton = modal.querySelector(".inventory-image-modal-close");
+
+    const closeModal = () => {
+      if (modal.open) {
+        modal.close();
+      }
+    };
+
+    document.addEventListener("click", (e) => {
+      const zoomButton = e.target.closest(".inventory-image-zoom");
+      if (!zoomButton) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!modalImage) return;
+
+      modalImage.src = zoomButton.dataset.imageSrc || "";
+      modalImage.alt = zoomButton.dataset.imageAlt || "Inventory image";
+      modal.showModal();
+    });
+
+    if (closeButton) {
+      closeButton.addEventListener("click", closeModal);
+    }
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("close", () => {
+      if (modalImage) {
+        modalImage.src = "";
+      }
+    });
   })();
 </script>
 

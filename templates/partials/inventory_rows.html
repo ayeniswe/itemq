@@ -6,7 +6,15 @@
         <img src="/media/{{ item.image_path }}"
              alt="{{ item.name }}"
              width="36"
-             height="36">
+             height="36"
+             class="inventory-image-thumb">
+        <button type="button"
+                class="inventory-image-zoom"
+                data-image-src="/media/{{ item.image_path }}"
+                data-image-alt="{{ item.name }}"
+                aria-label="Enlarge image">
+          🔍
+        </button>
       {% else %}
         <div class="inventory-image-placeholder">
           <span class="plus-icon">+</span>
