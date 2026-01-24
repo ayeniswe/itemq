@@ -67,4 +67,20 @@
   </div>
 </div>
 
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const selectAllButton = document.getElementById("select-all-items");
+    if (!selectAllButton) return;
+    selectAllButton.addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll(".barcode-item-checkbox");
+      const shouldSelect = Array.from(checkboxes).some((checkbox) => !checkbox.checked);
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = shouldSelect;
+        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      selectAllButton.textContent = shouldSelect ? "Clear all" : "Select all";
+    });
+  });
+</script>
+
 {% endblock %}

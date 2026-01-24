@@ -1,21 +1,23 @@
 <div class="barcode-inventory">
   <div class="barcode-inventory-header">
     <span>Inventory items</span>
-    <span class="barcode-inventory-count">{{ items|length }} available</span>
+    <div class="barcode-inventory-actions">
+      <span class="barcode-inventory-count">{{ items|length }} available</span>
+      <button type="button" class="btn-secondary btn-select-all" id="select-all-items">
+        Select all
+      </button>
+    </div>
   </div>
 
   {% if items %}
     <div class="barcode-inventory-list">
       {% for item in items %}
         <label class="barcode-inventory-row">
-          <input type="checkbox" name="item_ids" value="{{ item.id }}">
+          <input type="checkbox" name="item_ids" value="{{ item.id }}" class="barcode-item-checkbox">
           <div class="barcode-inventory-meta">
             <span class="barcode-item-name">{{ item.name }}</span>
             <span class="barcode-item-value">{{ item.barcode }}</span>
           </div>
-          <span class="source-pill source-{{ item.source }}">
-            {{ item.source|capitalize }}
-          </span>
         </label>
       {% endfor %}
     </div>
