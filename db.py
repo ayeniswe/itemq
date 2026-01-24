@@ -52,6 +52,8 @@ class InventoryDB(Protocol):
         entries: Iterable[tuple[int | None, str, str, str]],
     ) -> None: ...
 
+    def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]: ...
+
 
 # =============================
 # SQLite Implementation
@@ -181,6 +183,24 @@ class SQLiteInventoryDB:
             list(entries),
         )
         self.conn.commit()
+
+    def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]:
+        inventory_count = self.conn.execute(
+            "SELECT COUNT(*) AS count FROM inventory"
+        ).fetchone()["count"]
+        barcode_count = self.conn.execute(
+            "SELECT COUNT(*) AS count FROM barcode_generations"
+        ).fetchone()["count"]
+        low_stock_count = self.conn.execute(
+            "SELECT COUNT(*) AS count FROM inventory WHERE quantity <= ?",
+            (low_stock_threshold,),
+        ).fetchone()["count"]
+
+        return {
+            "total_items": int(inventory_count or 0),
+            "total_barcodes": int(barcode_count or 0),
+            "low_stock": int(low_stock_count or 0),
+        }
 
     # -------- Plugin Ops --------
 
@@ -315,3 +335,7 @@ def add_barcode_generations(
     entries: Iterable[tuple[int | None, str, str, str]],
 ) -> None:
     get_db().add_barcode_generations(entries)
+
+
+def get_dashboard_metrics(low_stock_threshold: int = 3) -> dict[str, int]:
+    return get_db().get_dashboard_metrics(low_stock_threshold)
