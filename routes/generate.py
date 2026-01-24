@@ -12,7 +12,7 @@ from model import Plugin
 from services.barcode_rendering import (
     SUPPORTED_FORMATS,
     normalize_format,
-    render_barcode_svg,
+    render_barcode_image_data,
 )
 
 router = APIRouter()
@@ -56,7 +56,9 @@ async def generate_preview(
             "barcode": item["barcode"],
             "source": item["source"],
             "format": normalized_format,
-            "svg": render_barcode_svg(item["barcode"], normalized_format),
+            "image_data": render_barcode_image_data(
+                item["barcode"], normalized_format
+            ),
         }
         for item in items
     ]
@@ -86,7 +88,9 @@ async def generate_confirm(
             "barcode": item["barcode"],
             "source": item["source"],
             "format": normalized_format,
-            "svg": render_barcode_svg(item["barcode"], normalized_format),
+            "image_data": render_barcode_image_data(
+                item["barcode"], normalized_format
+            ),
         }
         for item in items
     ]
