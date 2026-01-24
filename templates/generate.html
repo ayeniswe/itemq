@@ -31,7 +31,7 @@
       {% include "partials/barcode_inventory_list.html" %}
 
       <div class="generate-actions">
-        <button type="button" class="btn-secondary" onclick="window.print()">
+        <button type="button" class="btn-secondary" id="print-barcodes">
           Print
         </button>
         <button type="button"
@@ -97,8 +97,45 @@
     updateSelectAllLabel();
   });
 
-  document.addEventListener("DOMContentLoaded", updateSelectAllLabel);
-  document.addEventListener("htmx:afterSwap", updateSelectAllLabel);
+  const preloadBarcodeImages = () => {
+    const images = Array.from(document.querySelectorAll("#barcode-preview img"));
+    if (!images.length) {
+      return Promise.resolve();
+    }
+    return Promise.all(images.map((image) => {
+      image.loading = "eager";
+      if (image.complete && image.naturalWidth > 0) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+    }));
+  };
+
+  const handlePrint = async () => {
+    await preloadBarcodeImages();
+    window.print();
+  };
+
+  const setupPrintButton = () => {
+    const printButton = document.getElementById("print-barcodes");
+    if (!printButton || printButton.dataset.bound === "true") return;
+    printButton.dataset.bound = "true";
+    printButton.addEventListener("click", () => {
+      handlePrint();
+    });
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    updateSelectAllLabel();
+    setupPrintButton();
+  });
+  document.addEventListener("htmx:afterSwap", () => {
+    updateSelectAllLabel();
+    setupPrintButton();
+  });
 </script>
 
 {% endblock %}
