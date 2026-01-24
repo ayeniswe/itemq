@@ -34,14 +34,6 @@
         <button type="button" class="btn-secondary" id="print-barcodes">
           Print
         </button>
-        <button type="button"
-                class="btn-primary"
-                hx-post="/generate/confirm"
-                hx-target="#barcode-preview"
-                hx-swap="innerHTML"
-                hx-include="#barcode-selection">
-          Confirm &amp; Save
-        </button>
       </div>
 
       <div class="notion-action">
@@ -60,7 +52,7 @@
 
   <div class="generate-card">
     <h3>Preview</h3>
-    <p class="card-hint">Preview barcode output before saving.</p>
+    <p class="card-hint">Preview barcode output before printing.</p>
     <div id="barcode-preview" class="results-card">
       {% include "partials/barcode_preview.html" %}
     </div>
@@ -114,7 +106,82 @@
     }));
   };
 
+  const getSelectedItemIds = () => {
+    return Array.from(document.querySelectorAll(".barcode-item-checkbox:checked"))
+      .map((checkbox) => checkbox.value)
+      .sort();
+  };
+
+  const getSelectedFormat = () => {
+    const formatSelect = document.querySelector("select[name='format']");
+    return formatSelect ? formatSelect.value : "code128";
+  };
+
+  const buildSelectionSignature = () => {
+    const itemIds = getSelectedItemIds();
+    const format = getSelectedFormat();
+    if (!itemIds.length) {
+      return null;
+    }
+    return JSON.stringify({ itemIds, format });
+  };
+
+  const loadConfirmCache = () => {
+    try {
+      return JSON.parse(sessionStorage.getItem("barcodeConfirmCache") || "{}");
+    } catch (error) {
+      return {};
+    }
+  };
+
+  const saveConfirmCache = (cache) => {
+    sessionStorage.setItem("barcodeConfirmCache", JSON.stringify(cache));
+  };
+
+  const updatePreviewWithHtml = (html) => {
+    const preview = document.getElementById("barcode-preview");
+    if (!preview) return;
+    preview.innerHTML = html;
+  };
+
+  const saveBarcodesIfNeeded = async () => {
+    const signature = buildSelectionSignature();
+    if (!signature) {
+      return { didSave: false, signature: null };
+    }
+
+    const cache = loadConfirmCache();
+    if (cache[signature]) {
+      updatePreviewWithHtml(cache[signature]);
+      return { didSave: false, signature };
+    }
+
+    const form = document.getElementById("barcode-selection");
+    if (!form) {
+      return { didSave: false, signature: null };
+    }
+
+    const response = await fetch("/generate/confirm", {
+      method: "POST",
+      body: new FormData(form),
+      headers: {
+        "HX-Request": "true",
+      },
+    });
+
+    if (!response.ok) {
+      return { didSave: false, signature: null };
+    }
+
+    const html = await response.text();
+    updatePreviewWithHtml(html);
+    cache[signature] = html;
+    saveConfirmCache(cache);
+    return { didSave: true, signature };
+  };
+
   const handlePrint = async () => {
+    await saveBarcodesIfNeeded();
     await preloadBarcodeImages();
     window.print();
   };
