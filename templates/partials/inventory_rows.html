@@ -1,19 +1,32 @@
 {% for item in items %}
 <tr class="inventory-row">
   <td class="inventory-cell">
-    <label class="inventory-image-upload">
+    <div class="inventory-image-slot">
       {% if item.image_path %}
-        <img src="/media/{{ item.image_path }}"
-             alt="{{ item.name }}"
-             width="36"
-             height="36">
+        <a class="inventory-image-zoom"
+           href="/media/{{ item.image_path }}"
+           target="_blank"
+           rel="noopener"
+           aria-label="Zoom image for {{ item.name }}">
+          <img src="/media/{{ item.image_path }}"
+               alt="{{ item.name }}"
+               width="36"
+               height="36">
+        </a>
+        <label class="inventory-image-change"
+               for="inventory-image-{{ item.id }}">
+          Change
+        </label>
       {% else %}
-        <div class="inventory-image-placeholder">
+        <label class="inventory-image-placeholder"
+               for="inventory-image-{{ item.id }}"
+               aria-label="Add image for {{ item.name }}">
           <span class="plus-icon">+</span>
-        </div>
+        </label>
       {% endif %}
 
-      <input type="file"
+      <input id="inventory-image-{{ item.id }}"
+             type="file"
              name="file"
              accept="image/*"
              hx-post="/inventory/{{ item.id }}/image"
@@ -21,8 +34,9 @@
              hx-encoding="multipart/form-data"
              hx-target="#inventory-table"
              hx-swap="innerHTML"
-             hx-include="[name='include_notion']" hidden>
-    </label>
+             hx-include="[name='include_notion']"
+             hidden>
+    </div>
   </td>
 
   <td class="inventory-cell">
