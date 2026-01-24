@@ -871,11 +871,30 @@ main {
   .barcode-preview-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .barcode-card {
     break-inside: avoid;
     page-break-inside: avoid;
+    border: none;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .barcode-preview-header,
+  .barcode-card-header,
+  .barcode-card-footer {
+    display: none;
+  }
+
+  .barcode-art {
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
   }
 }
 
