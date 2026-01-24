@@ -2,63 +2,67 @@
 
 <div class="generate-header">
   <h1>Generate Barcodes</h1>
-  <p class="subtitle">Create or regenerate labels in just a few seconds.</p>
+  <p class="subtitle">Select inventory items, preview barcodes, and confirm labels.</p>
 </div>
 
-<div class="generate-grid">
+<div class="generate-grid generate-grid-wide">
+  <div class="generate-card">
+    <h3>Inventory Selection</h3>
+    <p class="card-hint">Choose items and a barcode style to preview.</p>
+
+    <form id="barcode-selection"
+          class="generate-form barcode-selection-form"
+          hx-post="/generate/preview"
+          hx-target="#barcode-preview"
+          hx-swap="innerHTML"
+          hx-trigger="change delay:250ms, submit">
+      <label>
+        Barcode format
+        <select name="format">
+          {% for fmt in formats %}
+            <option value="{{ fmt.key }}"
+                    {% if fmt.key == selected_format %}selected{% endif %}>
+              {{ fmt.label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      {% include "partials/barcode_inventory_list.html" %}
+
+      <div class="generate-actions">
+        <button type="submit" class="btn-secondary">Preview</button>
+        <button type="button"
+                class="btn-primary"
+                hx-post="/generate/confirm"
+                hx-target="#barcode-preview"
+                hx-swap="innerHTML"
+                hx-include="#barcode-selection">
+          Confirm &amp; Save
+        </button>
+      </div>
+
+      <div class="notion-action">
+        {% if notion_enabled %}
+          <p class="notion-hint">
+            Notion inventory is connected and included in selections.
+          </p>
+        {% else %}
+          <p class="notion-hint">
+            Connect the Notion plugin to include remote inventory rows.
+          </p>
+        {% endif %}
+      </div>
+    </form>
+  </div>
 
   <div class="generate-card">
-    <h3>New Stickers</h3>
-    <p class="card-hint">Generate fresh barcode labels</p>
-
-    <form hx-post="/api/generate"
-          hx-target="#barcode-results"
-          hx-swap="innerHTML"
-          class="generate-form">
-
-      <label>
-        Quantity
-        <input type="number" name="count" min="1" required>
-      </label>
-
-      <button type="submit" class="btn-primary">Generate</button>
-    </form>
-    <div class="notion-action">
-      <label class="notion-checkbox">
-        <input type="checkbox" name="use_notion">
-        <span>Use Notion database</span>
-      </label>
-      <p class="notion-hint">
-        Requires the Notion plugin to be connected
-      </p>
+    <h3>Preview</h3>
+    <p class="card-hint">Confirm barcode output before saving.</p>
+    <div id="barcode-preview" class="results-card">
+      {% include "partials/barcode_preview.html" %}
     </div>
   </div>
-
-  <div class="generate-card">
-    <h3>Regenerate Stickers</h3>
-    <p class="card-hint">Only print what you need</p>
-
-    <form hx-post="/api/regenerate"
-          hx-target="#barcode-results"
-          hx-swap="innerHTML"
-          class="generate-form">
-
-      <label>
-        Barcode
-        <input type="text" name="barcode" placeholder="DEADBEEF" required>
-      </label>
-
-      <label>
-        Quantity
-        <input type="number" name="quantity" min="1" required>
-      </label>
-
-      <button type="submit" class="btn-secondary">Generate Stickers</button>
-    </form>
-  </div>
-
 </div>
-
-<div id="barcode-results" class="results-card"></div>
 
 {% endblock %}
