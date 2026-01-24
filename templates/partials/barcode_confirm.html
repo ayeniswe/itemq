@@ -20,8 +20,10 @@
             {{ barcode.source|capitalize }}
           </span>
         </div>
-        <div class="barcode-art" aria-hidden="true">
-          {{ barcode.svg | safe }}
+        <div class="barcode-art">
+          <img src="{{ barcode.image_data }}"
+               alt="Barcode for {{ barcode.barcode }}"
+               loading="lazy" />
         </div>
         <div class="barcode-card-footer">
           <span class="barcode-card-value">{{ barcode.barcode }}</span>
