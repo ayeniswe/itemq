@@ -68,19 +68,37 @@
 </div>
 
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  const updateSelectAllLabel = () => {
     const selectAllButton = document.getElementById("select-all-items");
     if (!selectAllButton) return;
-    selectAllButton.addEventListener("click", () => {
-      const checkboxes = document.querySelectorAll(".barcode-item-checkbox");
-      const shouldSelect = Array.from(checkboxes).some((checkbox) => !checkbox.checked);
-      checkboxes.forEach((checkbox) => {
-        checkbox.checked = shouldSelect;
-        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      selectAllButton.textContent = shouldSelect ? "Clear all" : "Select all";
+    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
+    const hasUnchecked = checkboxes.some((checkbox) => !checkbox.checked);
+    selectAllButton.textContent = hasUnchecked ? "Select all" : "Clear all";
+    selectAllButton.disabled = checkboxes.length === 0;
+  };
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id !== "select-all-items") return;
+    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
+    const shouldSelect = checkboxes.some((checkbox) => !checkbox.checked);
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = shouldSelect;
+      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    updateSelectAllLabel();
   });
+
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.classList.contains("barcode-item-checkbox")) return;
+    updateSelectAllLabel();
+  });
+
+  document.addEventListener("DOMContentLoaded", updateSelectAllLabel);
+  document.addEventListener("htmx:afterSwap", updateSelectAllLabel);
 </script>
 
 {% endblock %}
