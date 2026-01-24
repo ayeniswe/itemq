@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 
-from db import init_db
+from db import init_db, get_dashboard_metrics
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,7 +47,14 @@ async def home(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    metrics = get_dashboard_metrics()
+    return templates.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "metrics": metrics,
+        },
+    )
 
 
 @app.get("/inventory", response_class=HTMLResponse)
