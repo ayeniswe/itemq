@@ -42,6 +42,16 @@ class InventoryDB(Protocol):
 
     def get_inventory_item(self, item_id: int) -> Optional[sqlite3.Row]: ...
 
+    def get_inventory_items_by_ids(
+        self,
+        item_ids: Iterable[int],
+    ) -> Iterable[sqlite3.Row]: ...
+
+    def add_barcode_generations(
+        self,
+        entries: Iterable[tuple[int | None, str, str, str]],
+    ) -> None: ...
+
 
 # =============================
 # SQLite Implementation
@@ -143,6 +153,34 @@ class SQLiteInventoryDB:
             "SELECT id, name, barcode, quantity, image_path, source, created_at FROM inventory WHERE id = ?",
             (item_id,),
         ).fetchone()
+
+    def get_inventory_items_by_ids(self, item_ids: Iterable[int]):
+        ids = list(item_ids)
+        if not ids:
+            return []
+        placeholders = ", ".join("?" for _ in ids)
+        return self.conn.execute(
+            f"""
+            SELECT id, name, barcode, quantity, image_path, source, created_at
+            FROM inventory
+            WHERE id IN ({placeholders})
+            ORDER BY created_at DESC
+            """,
+            ids,
+        ).fetchall()
+
+    def add_barcode_generations(
+        self,
+        entries: Iterable[tuple[int | None, str, str, str]],
+    ) -> None:
+        self.conn.executemany(
+            """
+            INSERT INTO barcode_generations (inventory_id, barcode_value, format, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            list(entries),
+        )
+        self.conn.commit()
 
     # -------- Plugin Ops --------
 
@@ -267,3 +305,13 @@ def update_plugin_config(name: str, config: dict | None) -> None:
 
 def get_inventory_item(item_id: int):
     return get_db().get_inventory_item(item_id)
+
+
+def get_inventory_items_by_ids(item_ids: Iterable[int]):
+    return get_db().get_inventory_items_by_ids(item_ids)
+
+
+def add_barcode_generations(
+    entries: Iterable[tuple[int | None, str, str, str]],
+) -> None:
+    get_db().add_barcode_generations(entries)
