@@ -906,10 +906,18 @@ main {
   .barcode-card {
     break-inside: avoid;
     page-break-inside: avoid;
+    -webkit-column-break-inside: avoid;
     border: none;
     padding: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  .barcode-art,
+  .barcode-art img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-column-break-inside: avoid;
   }
 
   .barcode-preview-header,
