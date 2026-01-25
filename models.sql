@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS barcode_labels (
     barcode_value TEXT NOT NULL,
     format TEXT NOT NULL,
     image_path TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
     generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (inventory_id) REFERENCES inventory(id)
 );

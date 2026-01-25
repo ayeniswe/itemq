@@ -23,6 +23,13 @@
             <span class="barcode-item-name">{{ item.name }}</span>
             <span class="barcode-item-value">{{ item.barcode }}</span>
           </div>
+          <div class="barcode-quantity">
+            <span class="barcode-quantity-label">Qty</span>
+            <input type="number"
+                   name="quantity_{{ item.id }}"
+                   min="1"
+                   value="{{ item.label_quantity or 1 }}">
+          </div>
           <span class="label-status {% if has_label %}label-ready{% else %}label-missing{% endif %}">
             {% if has_label %}
               Label ready

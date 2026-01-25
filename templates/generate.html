@@ -103,6 +103,7 @@
   });
 
   let cachedSelection = new Set();
+  let cachedQuantities = new Map();
 
   const preloadBarcodeImages = () => {
     const images = Array.from(document.querySelectorAll("#barcode-preview img"));
@@ -215,6 +216,12 @@
         (checkbox) => checkbox.value
       )
     );
+    cachedQuantities = new Map(
+      Array.from(document.querySelectorAll(".barcode-quantity input")).map((input) => [
+        input.name,
+        input.value,
+      ])
+    );
   });
 
   document.body.addEventListener("htmx:afterSwap", (event) => {
@@ -228,6 +235,17 @@
         checkbox.checked = cachedSelection.has(checkbox.value);
       });
       cachedSelection = new Set();
+    }
+    if (target.id === "barcode-inventory-list" && cachedQuantities.size) {
+      const quantityInputs = Array.from(
+        target.querySelectorAll(".barcode-quantity input")
+      );
+      quantityInputs.forEach((input) => {
+        if (cachedQuantities.has(input.name)) {
+          input.value = cachedQuantities.get(input.name);
+        }
+      });
+      cachedQuantities = new Map();
     }
     updateSelectAllLabel();
     updateActionState();

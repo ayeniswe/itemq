@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -52,10 +52,11 @@ def _format_summary(barcodes: list[dict]) -> str:
     return "MULTIPLE"
 
 
-def _build_barcode_preview(items, fallback_format: str):
+def _build_barcode_preview(items, quantities: dict[int, int], fallback_format: str):
     barcodes = []
     for item in items:
         label_format = item["label_format"] or fallback_format
+        quantity = quantities.get(item["id"], item["label_quantity"] or 1)
         barcodes.append(
             {
                 "id": item["id"],
@@ -64,27 +65,50 @@ def _build_barcode_preview(items, fallback_format: str):
                 "source": item["source"],
                 "format": label_format,
                 "label_path": item["label_path"],
+                "quantity": quantity,
             }
         )
     return barcodes
 
 
+async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int, int], str]:
+    form = await request.form()
+    item_ids = [int(value) for value in form.getlist("item_ids")]
+    quantities = {}
+    for item_id in item_ids:
+        raw_value = form.get(f"quantity_{item_id}", "1")
+        try:
+            parsed = int(raw_value)
+        except (TypeError, ValueError):
+            parsed = 1
+        quantities[item_id] = max(parsed, 1)
+    normalized_format = normalize_format(form.get("format", "code128"))
+    return item_ids, quantities, normalized_format
+
+
+def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
+    expanded = []
+    for barcode in barcodes:
+        count = barcode.get("quantity", 1)
+        for _ in range(max(count, 1)):
+            expanded.append({**barcode, "quantity": 1})
+    return expanded
+
+
 @router.post("/generate/preview", response_class=HTMLResponse)
 async def generate_preview(
     request: Request,
-    item_ids: list[int] = Form([]),
-    format: str = Form("code128"),
 ):
-    normalized_format = normalize_format(format)
+    item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
-    barcodes = _build_barcode_preview(items, normalized_format)
+    barcodes = _build_barcode_preview(items, quantities, normalized_format)
     return templates.TemplateResponse(
         "partials/barcode_preview.html",
         {
             "request": request,
             "barcodes": barcodes,
             "selected_format": _format_summary(barcodes),
-            "selection_count": len(item_ids),
+            "selection_count": sum(quantities.values()),
         },
     )
 
@@ -92,10 +116,8 @@ async def generate_preview(
 @router.post("/generate/create", response_class=HTMLResponse)
 async def generate_create(
     request: Request,
-    item_ids: list[int] = Form([]),
-    format: str = Form("code128"),
 ):
-    normalized_format = normalize_format(format)
+    item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
     output_dir = Path("data/media/barcodes")
     entries = []
@@ -107,12 +129,13 @@ async def generate_create(
                 item["barcode"],
                 normalized_format,
                 f"barcodes/{filename}",
+                quantities.get(item["id"], 1),
             )
         )
     if entries:
         upsert_barcode_labels(entries)
     refreshed_items = get_inventory_items_with_labels_by_ids(item_ids)
-    barcodes = _build_barcode_preview(refreshed_items, normalized_format)
+    barcodes = _build_barcode_preview(refreshed_items, quantities, normalized_format)
     include_notion = _notion_enabled()
     inventory_items = list_inventory_with_labels(include_notion=include_notion)
     banner = None
@@ -120,8 +143,8 @@ async def generate_create(
         banner = {
             "title": "Labels generated",
             "subtitle": (
-                f"Saved {len(item_ids)} label"
-                f"{'' if len(item_ids) == 1 else 's'} as {normalized_format.upper()}."
+                f"Saved {sum(quantities.values())} label"
+                f"{'' if sum(quantities.values()) == 1 else 's'} as {normalized_format.upper()}."
             ),
         }
 
@@ -131,7 +154,7 @@ async def generate_create(
             "request": request,
             "barcodes": barcodes,
             "selected_format": _format_summary(barcodes),
-            "selection_count": len(item_ids),
+            "selection_count": sum(quantities.values()),
             "items": inventory_items,
             "banner": banner,
         },
@@ -141,10 +164,8 @@ async def generate_create(
 @router.post("/generate/print", response_class=HTMLResponse)
 async def generate_print(
     request: Request,
-    item_ids: list[int] = Form([]),
-    format: str = Form("code128"),
 ):
-    normalized_format = normalize_format(format)
+    item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
     missing = [item for item in items if not item["label_path"]]
     if missing:
@@ -156,13 +177,14 @@ async def generate_print(
             },
             status_code=400,
         )
-    barcodes = _build_barcode_preview(items, normalized_format)
+    barcodes = _build_barcode_preview(items, quantities, normalized_format)
+    print_barcodes = _expand_barcodes_for_print(barcodes)
     return templates.TemplateResponse(
         "partials/barcode_preview.html",
         {
             "request": request,
-            "barcodes": barcodes,
+            "barcodes": print_barcodes,
             "selected_format": _format_summary(barcodes),
-            "selection_count": len(item_ids),
+            "selection_count": sum(quantities.values()),
         },
     )

@@ -59,7 +59,7 @@ class InventoryDB(Protocol):
 
     def upsert_barcode_labels(
         self,
-        entries: Iterable[tuple[int, str, str, str]],
+        entries: Iterable[tuple[int, str, str, str, int]],
     ) -> None: ...
 
     def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]: ...
@@ -196,6 +196,7 @@ class SQLiteInventoryDB:
                    inventory.created_at,
                    barcode_labels.image_path AS label_path,
                    barcode_labels.format AS label_format,
+                   barcode_labels.quantity AS label_quantity,
                    barcode_labels.generated_at AS label_generated_at
             FROM inventory
             LEFT JOIN barcode_labels
@@ -230,6 +231,7 @@ class SQLiteInventoryDB:
                    inventory.created_at,
                    barcode_labels.image_path AS label_path,
                    barcode_labels.format AS label_format,
+                   barcode_labels.quantity AS label_quantity,
                    barcode_labels.generated_at AS label_generated_at
             FROM inventory
             LEFT JOIN barcode_labels
@@ -242,16 +244,17 @@ class SQLiteInventoryDB:
 
     def upsert_barcode_labels(
         self,
-        entries: Iterable[tuple[int, str, str, str]],
+        entries: Iterable[tuple[int, str, str, str, int]],
     ) -> None:
         self.conn.executemany(
             """
-            INSERT INTO barcode_labels (inventory_id, barcode_value, format, image_path)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO barcode_labels (inventory_id, barcode_value, format, image_path, quantity)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(inventory_id) DO UPDATE SET
                 barcode_value = excluded.barcode_value,
                 format = excluded.format,
                 image_path = excluded.image_path,
+                quantity = excluded.quantity,
                 generated_at = CURRENT_TIMESTAMP
             """,
             list(entries),
@@ -263,7 +266,7 @@ class SQLiteInventoryDB:
             "SELECT COUNT(*) AS count FROM inventory"
         ).fetchone()["count"]
         barcode_count = self.conn.execute(
-            "SELECT COUNT(*) AS count FROM barcode_labels"
+            "SELECT COALESCE(SUM(quantity), 0) AS count FROM barcode_labels"
         ).fetchone()["count"]
         low_stock_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory WHERE quantity <= ?",
@@ -414,7 +417,7 @@ def get_inventory_items_with_labels_by_ids(item_ids: Iterable[int]):
 
 
 def upsert_barcode_labels(
-    entries: Iterable[tuple[int, str, str, str]],
+    entries: Iterable[tuple[int, str, str, str, int]],
 ) -> None:
     get_db().upsert_barcode_labels(entries)
 

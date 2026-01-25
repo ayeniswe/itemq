@@ -32,7 +32,12 @@
         </div>
         <div class="barcode-card-footer">
           <span class="barcode-card-value">{{ barcode.barcode }}</span>
-          <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
+          <div class="barcode-card-meta">
+            {% if barcode.quantity and barcode.quantity > 1 %}
+              <span class="barcode-quantity-pill">x{{ barcode.quantity }}</span>
+            {% endif %}
+            <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
+          </div>
         </div>
       </div>
     {% endfor %}
