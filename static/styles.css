@@ -896,17 +896,15 @@ main {
   }
 
   .barcode-preview-grid {
-    display: block;
-    gap: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
     max-height: none;
     overflow: visible;
     padding-right: 0;
   }
 
   .barcode-card {
-    display: block;
-    width: 100%;
-    margin-bottom: 1rem;
     break-inside: avoid;
     page-break-inside: avoid;
     -webkit-column-break-inside: avoid;
