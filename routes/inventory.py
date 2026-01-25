@@ -143,7 +143,7 @@ async def update_inventory_item_image(
     include_notion: bool = Form(False),
 ):
     # Ensure image directory exists
-    image_dir = Path("data/images/inventory")
+    image_dir = Path("data/media/inventory")
     image_dir.mkdir(parents=True, exist_ok=True)
 
     # Generate safe filename

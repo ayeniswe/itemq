@@ -1,18 +1,20 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from db import (
-    add_barcode_generations,
-    get_inventory_items_by_ids,
+    get_inventory_items_with_labels_by_ids,
     get_plugin,
-    list_inventory,
+    list_inventory_with_labels,
+    upsert_barcode_labels,
 )
 from model import Plugin
 from services.barcode_rendering import (
     SUPPORTED_FORMATS,
     normalize_format,
-    render_barcode_image_data,
+    save_barcode_image,
 )
 
 router = APIRouter()
@@ -27,7 +29,7 @@ def _notion_enabled() -> bool:
 @router.get("/generate", response_class=HTMLResponse)
 async def generate(request: Request):
     include_notion = _notion_enabled()
-    items = list_inventory(include_notion=include_notion)
+    items = list_inventory_with_labels(include_notion=include_notion)
     return templates.TemplateResponse(
         "generate.html",
         {
@@ -41,6 +43,32 @@ async def generate(request: Request):
     )
 
 
+def _format_summary(barcodes: list[dict]) -> str:
+    formats = {barcode["format"] for barcode in barcodes if barcode.get("format")}
+    if not formats:
+        return normalize_format(None).upper()
+    if len(formats) == 1:
+        return next(iter(formats)).upper()
+    return "MULTIPLE"
+
+
+def _build_barcode_preview(items, fallback_format: str):
+    barcodes = []
+    for item in items:
+        label_format = item["label_format"] or fallback_format
+        barcodes.append(
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "barcode": item["barcode"],
+                "source": item["source"],
+                "format": label_format,
+                "label_path": item["label_path"],
+            }
+        )
+    return barcodes
+
+
 @router.post("/generate/preview", response_class=HTMLResponse)
 async def generate_preview(
     request: Request,
@@ -48,65 +76,93 @@ async def generate_preview(
     format: str = Form("code128"),
 ):
     normalized_format = normalize_format(format)
-    items = get_inventory_items_by_ids(item_ids)
-    barcodes = [
-        {
-            "id": item["id"],
-            "name": item["name"],
-            "barcode": item["barcode"],
-            "source": item["source"],
-            "format": normalized_format,
-            "image_data": render_barcode_image_data(
-                item["barcode"], normalized_format
-            ),
-        }
-        for item in items
-    ]
+    items = get_inventory_items_with_labels_by_ids(item_ids)
+    barcodes = _build_barcode_preview(items, normalized_format)
     return templates.TemplateResponse(
         "partials/barcode_preview.html",
         {
             "request": request,
             "barcodes": barcodes,
-            "selected_format": normalized_format,
+            "selected_format": _format_summary(barcodes),
             "selection_count": len(item_ids),
         },
     )
 
 
-@router.post("/generate/confirm", response_class=HTMLResponse)
-async def generate_confirm(
+@router.post("/generate/create", response_class=HTMLResponse)
+async def generate_create(
     request: Request,
     item_ids: list[int] = Form([]),
     format: str = Form("code128"),
 ):
     normalized_format = normalize_format(format)
-    items = get_inventory_items_by_ids(item_ids)
-    barcodes = [
-        {
-            "id": item["id"],
-            "name": item["name"],
-            "barcode": item["barcode"],
-            "source": item["source"],
-            "format": normalized_format,
-            "image_data": render_barcode_image_data(
-                item["barcode"], normalized_format
+    items = get_inventory_items_with_labels_by_ids(item_ids)
+    output_dir = Path("data/media/barcodes")
+    entries = []
+    for item in items:
+        filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+        entries.append(
+            (
+                item["id"],
+                item["barcode"],
+                normalized_format,
+                f"barcodes/{filename}",
+            )
+        )
+    if entries:
+        upsert_barcode_labels(entries)
+    refreshed_items = get_inventory_items_with_labels_by_ids(item_ids)
+    barcodes = _build_barcode_preview(refreshed_items, normalized_format)
+    include_notion = _notion_enabled()
+    inventory_items = list_inventory_with_labels(include_notion=include_notion)
+    banner = None
+    if item_ids:
+        banner = {
+            "title": "Labels generated",
+            "subtitle": (
+                f"Saved {len(item_ids)} label"
+                f"{'' if len(item_ids) == 1 else 's'} as {normalized_format.upper()}."
             ),
         }
-        for item in items
-    ]
-    entries = [
-        (item["id"], item["barcode"], normalized_format, "generated")
-        for item in items
-    ]
-    if entries:
-        add_barcode_generations(entries)
 
     return templates.TemplateResponse(
-        "partials/barcode_confirm.html",
+        "partials/barcode_generate_response.html",
         {
             "request": request,
             "barcodes": barcodes,
-            "selected_format": normalized_format,
+            "selected_format": _format_summary(barcodes),
+            "selection_count": len(item_ids),
+            "items": inventory_items,
+            "banner": banner,
+        },
+    )
+
+
+@router.post("/generate/print", response_class=HTMLResponse)
+async def generate_print(
+    request: Request,
+    item_ids: list[int] = Form([]),
+    format: str = Form("code128"),
+):
+    normalized_format = normalize_format(format)
+    items = get_inventory_items_with_labels_by_ids(item_ids)
+    missing = [item for item in items if not item["label_path"]]
+    if missing:
+        return templates.TemplateResponse(
+            "partials/barcode_print_error.html",
+            {
+                "request": request,
+                "message": "Generate labels for the selected items, then try printing again.",
+            },
+            status_code=400,
+        )
+    barcodes = _build_barcode_preview(items, normalized_format)
+    return templates.TemplateResponse(
+        "partials/barcode_preview.html",
+        {
+            "request": request,
+            "barcodes": barcodes,
+            "selected_format": _format_summary(barcodes),
             "selection_count": len(item_ids),
         },
     )

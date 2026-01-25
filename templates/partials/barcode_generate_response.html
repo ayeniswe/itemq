@@ -1,0 +1,12 @@
+{% if banner %}
+  <div class="barcode-confirm-banner">
+    <span class="barcode-confirm-title">{{ banner.title }}</span>
+    <span class="barcode-confirm-subtitle">{{ banner.subtitle }}</span>
+  </div>
+{% endif %}
+
+{% include "partials/barcode_preview.html" %}
+
+<div id="barcode-inventory-list" hx-swap-oob="true">
+  {% include "partials/barcode_inventory_list.html" %}
+</div>

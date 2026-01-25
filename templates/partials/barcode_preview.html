@@ -19,9 +19,16 @@
           </span>
         </div>
         <div class="barcode-art">
-          <img src="{{ barcode.image_data }}"
-               alt="Barcode for {{ barcode.barcode }}"
-               loading="eager" />
+          {% if barcode.label_path %}
+            <img src="/media/{{ barcode.label_path }}"
+                 alt="Barcode for {{ barcode.barcode }}"
+                 loading="eager" />
+          {% else %}
+            <div class="barcode-missing">
+              <p>Label not generated yet.</p>
+              <span>Click Generate to create it.</span>
+            </div>
+          {% endif %}
         </div>
         <div class="barcode-card-footer">
           <span class="barcode-card-value">{{ barcode.barcode }}</span>
