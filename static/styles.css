@@ -912,6 +912,12 @@ main {
     box-shadow: none;
   }
 
+  .barcode-art,
+  .barcode-art img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .barcode-preview-header,
   .barcode-card-header,
   .barcode-card-footer {
