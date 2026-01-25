@@ -2,7 +2,7 @@
 
 <div class="generate-header">
   <h1>Generate Barcodes</h1>
-  <p class="subtitle">Select inventory items, print barcodes, and confirm labels.</p>
+  <p class="subtitle">Select inventory items, print barcodes, and save labels after printing.</p>
 </div>
 
 <div class="generate-grid generate-grid-wide">
@@ -34,14 +34,6 @@
         <button type="button" class="btn-secondary" id="print-barcodes">
           Print
         </button>
-        <button type="button"
-                class="btn-primary"
-                hx-post="/generate/confirm"
-                hx-target="#barcode-preview"
-                hx-swap="innerHTML"
-                hx-include="#barcode-selection">
-          Confirm &amp; Save
-        </button>
       </div>
 
       <div class="notion-action">
@@ -60,7 +52,7 @@
 
   <div class="generate-card">
     <h3>Preview</h3>
-    <p class="card-hint">Preview barcode output before saving.</p>
+    <p class="card-hint">Preview barcode output before printing.</p>
     <div id="barcode-preview" class="results-card">
       {% include "partials/barcode_preview.html" %}
     </div>
@@ -114,7 +106,47 @@
     }));
   };
 
+  let printInProgress = false;
+  let sawPrintMedia = false;
+
+  const printMediaQuery = window.matchMedia
+    ? window.matchMedia("print")
+    : null;
+  if (printMediaQuery) {
+    const handlePrintMediaChange = (event) => {
+      if (event.matches) {
+        sawPrintMedia = true;
+      }
+    };
+    if (typeof printMediaQuery.addEventListener === "function") {
+      printMediaQuery.addEventListener("change", handlePrintMediaChange);
+    } else if (typeof printMediaQuery.addListener === "function") {
+      printMediaQuery.addListener(handlePrintMediaChange);
+    }
+  }
+
+  const saveAfterPrint = async () => {
+    const form = document.getElementById("barcode-selection");
+    const preview = document.getElementById("barcode-preview");
+    if (!form || !preview) return;
+    const formData = new FormData(form);
+    const response = await fetch("/generate/confirm", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      return;
+    }
+    const html = await response.text();
+    preview.innerHTML = html;
+    if (window.htmx) {
+      window.htmx.process(preview);
+    }
+  };
+
   const handlePrint = async () => {
+    printInProgress = true;
+    sawPrintMedia = false;
     await preloadBarcodeImages();
     window.print();
   };
@@ -127,6 +159,13 @@
       handlePrint();
     });
   };
+
+  window.addEventListener("afterprint", async () => {
+    if (!printInProgress) return;
+    printInProgress = false;
+    if (!sawPrintMedia) return;
+    await saveAfterPrint();
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     updateSelectAllLabel();
