@@ -17,6 +17,15 @@ from services.barcode_rendering import (
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+LABEL_COLUMNS = 3
+LABEL_ROWS = 8
+
+
+def _paginate_barcodes(barcodes: list[dict]) -> list[list[dict]]:
+    per_page = LABEL_COLUMNS * LABEL_ROWS
+    return [
+        barcodes[i : i + per_page] for i in range(0, len(barcodes), per_page)
+    ]
 
 
 def _notion_enabled() -> bool:
@@ -62,13 +71,17 @@ async def generate_preview(
         }
         for item in items
     ]
+    pages = _paginate_barcodes(barcodes)
     return templates.TemplateResponse(
         "partials/barcode_preview.html",
         {
             "request": request,
             "barcodes": barcodes,
+            "barcode_pages": pages,
             "selected_format": normalized_format,
             "selection_count": len(item_ids),
+            "label_columns": LABEL_COLUMNS,
+            "label_rows": LABEL_ROWS,
         },
     )
 
@@ -100,13 +113,17 @@ async def generate_confirm(
     ]
     if entries:
         add_barcode_generations(entries)
+    pages = _paginate_barcodes(barcodes)
 
     return templates.TemplateResponse(
         "partials/barcode_confirm.html",
         {
             "request": request,
             "barcodes": barcodes,
+            "barcode_pages": pages,
             "selected_format": normalized_format,
             "selection_count": len(item_ids),
+            "label_columns": LABEL_COLUMNS,
+            "label_rows": LABEL_ROWS,
         },
     )

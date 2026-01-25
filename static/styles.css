@@ -783,16 +783,29 @@ main {
   margin-bottom: 0.75rem;
 }
 
-.barcode-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 0.75rem;
+.barcode-sheets {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   max-height: 720px;
   overflow-y: auto;
   padding-right: 0.25rem;
 }
 
-.barcode-card {
+.barcode-sheet {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f9fafb;
+  padding: 1rem;
+}
+
+.barcode-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--label-columns, 3), minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.barcode-label {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 0.75rem;
@@ -895,15 +908,34 @@ main {
     background: #ffffff;
   }
 
-  .barcode-preview-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
+  .barcode-sheets {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+    gap: 0;
   }
 
-  .barcode-card {
+  .barcode-sheet {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.5in;
+    min-height: 10in;
+    page-break-after: always;
+  }
+
+  .barcode-sheet:last-child {
+    page-break-after: auto;
+  }
+
+  .barcode-sheet-grid {
+    grid-template-columns: repeat(var(--label-columns, 3), 2.5in);
+    grid-auto-rows: 1.25in;
+    gap: 0.2in 0.15in;
+    justify-content: start;
+  }
+
+  .barcode-label {
     break-inside: avoid;
     page-break-inside: avoid;
     border: none;

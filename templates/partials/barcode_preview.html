@@ -1,4 +1,5 @@
 {% set items = barcodes|default([]) %}
+{% set pages = barcode_pages|default([]) %}
 
 {% if not items %}
   <div class="barcode-empty-preview">
@@ -9,25 +10,31 @@
     <span>{{ selection_count }} selected</span>
     <span class="barcode-format-label">Format: {{ selected_format|upper }}</span>
   </div>
-  <div class="barcode-preview-grid">
-    {% for barcode in items %}
-      <div class="barcode-card">
-        <div class="barcode-card-header">
-          <span class="barcode-card-name">{{ barcode.name }}</span>
-          <span class="source-pill source-{{ barcode.source }}">
-            {{ barcode.source|capitalize }}
-          </span>
+  <div class="barcode-sheets" style="--label-columns: {{ label_columns }}; --label-rows: {{ label_rows }};">
+    {% for page in pages %}
+      <section class="barcode-sheet">
+        <div class="barcode-sheet-grid">
+          {% for barcode in page %}
+            <div class="barcode-label">
+              <div class="barcode-card-header">
+                <span class="barcode-card-name">{{ barcode.name }}</span>
+                <span class="source-pill source-{{ barcode.source }}">
+                  {{ barcode.source|capitalize }}
+                </span>
+              </div>
+              <div class="barcode-art">
+                <img src="{{ barcode.image_data }}"
+                     alt="Barcode for {{ barcode.barcode }}"
+                     loading="eager" />
+              </div>
+              <div class="barcode-card-footer">
+                <span class="barcode-card-value">{{ barcode.barcode }}</span>
+                <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
+              </div>
+            </div>
+          {% endfor %}
         </div>
-        <div class="barcode-art">
-          <img src="{{ barcode.image_data }}"
-               alt="Barcode for {{ barcode.barcode }}"
-               loading="eager" />
-        </div>
-        <div class="barcode-card-footer">
-          <span class="barcode-card-value">{{ barcode.barcode }}</span>
-          <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
-        </div>
-      </div>
+      </section>
     {% endfor %}
   </div>
 {% endif %}
