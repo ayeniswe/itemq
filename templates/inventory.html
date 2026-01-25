@@ -20,29 +20,10 @@
       <span>Include Notion Inventory</span>
     </label>
 
-    <div class="inventory-search" role="search">
-      <span class="inventory-search-icon" aria-hidden="true">🔎</span>
-      <input id="inventory-search"
-             type="search"
-             placeholder="Search by name, barcode, or source"
-             autocomplete="off"
-             aria-label="Search inventory items">
-      <button type="button"
-              id="inventory-search-clear"
-              class="inventory-search-clear"
-              aria-label="Clear search">
-        ×
-      </button>
-    </div>
-
     <button id="inventory-add-toggle"
             class="btn-secondary inventory-add-toggle">
       + Add inventory item
     </button>
-  </div>
-
-  <div class="inventory-search-meta">
-    <span id="inventory-search-count" class="inventory-muted">Showing all items</span>
   </div>
 
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
@@ -82,6 +63,23 @@
 
 <div class="inventory-card">
   <div class="inventory-table-wrapper">
+    <div class="inventory-search-row">
+      <div class="inventory-search" role="search">
+        <span class="inventory-search-icon" aria-hidden="true">🔎</span>
+        <input id="inventory-search"
+               type="search"
+               placeholder="Search by name, barcode, or source"
+               autocomplete="off"
+               aria-label="Search inventory items">
+        <button type="button"
+                id="inventory-search-clear"
+                class="inventory-search-clear"
+                aria-label="Clear search">
+          ×
+        </button>
+      </div>
+      <span id="inventory-search-count" class="inventory-muted">Showing all items</span>
+    </div>
     <div id="inventory-search-empty" class="inventory-empty" hidden>
       No matching items. Try a different search.
     </div>

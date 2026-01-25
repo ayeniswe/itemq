@@ -270,6 +270,19 @@ main {
   font-size: 0.8rem;
 }
 
+.inventory-search-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.inventory-search-row .inventory-muted {
+  font-size: 0.8rem;
+}
+
 .inventory-empty {
   padding: 0.75rem 1rem;
   border-radius: 12px;
