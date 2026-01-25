@@ -135,6 +135,7 @@
     const form = document.getElementById("barcode-selection");
     const preview = document.getElementById("barcode-preview");
     const statusMessage = document.getElementById("barcode-status-message");
+    const printButton = document.getElementById("print-barcodes");
     if (!form || !preview) return;
     const { selected, missing } = getSelection();
     if (!selected.length) {
@@ -152,25 +153,66 @@
     if (statusMessage) {
       statusMessage.innerHTML = "";
     }
-    const formData = new FormData(form);
-    const response = await fetch("/generate/print", {
-      method: "POST",
-      body: formData,
-    });
-    if (!response.ok) {
-      const html = await response.text();
-      if (statusMessage) {
-        statusMessage.innerHTML = html;
+    if (statusMessage) {
+      statusMessage.innerHTML = "<div class=\"barcode-warning\">Creating PDF sheet...</div>";
+    }
+    if (printButton) {
+      printButton.disabled = true;
+    }
+    try {
+      const formData = new FormData(form);
+      const response = await fetch("/generate/print", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        const html = await response.text();
+        if (statusMessage) {
+          statusMessage.innerHTML = html;
+        }
+        return;
       }
-      return;
+      const pdfBlob = await response.blob();
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(pdfUrl, "_blank");
+      if (printWindow) {
+        printWindow.addEventListener(
+          "load",
+          () => {
+            printWindow.focus();
+            printWindow.print();
+          },
+          { once: true }
+        );
+        printWindow.addEventListener(
+          "afterprint",
+          () => {
+            URL.revokeObjectURL(pdfUrl);
+          },
+          { once: true }
+        );
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl);
+        }, 60000);
+      } else {
+        const link = document.createElement("a");
+        link.href = pdfUrl;
+        link.download = "barcode-labels.pdf";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => {
+          URL.revokeObjectURL(pdfUrl);
+        }, 60000);
+      }
+      if (statusMessage) {
+        statusMessage.innerHTML = "";
+      }
+    } finally {
+      if (printButton) {
+        printButton.disabled = false;
+      }
     }
-    const html = await response.text();
-    preview.innerHTML = html;
-    if (window.htmx) {
-      window.htmx.process(preview);
-    }
-    await preloadBarcodeImages();
-    window.print();
   };
 
   const updateActionState = () => {
