@@ -106,7 +106,15 @@
     }));
   };
 
-  let printInProgress = false;
+  const getPrintState = () => {
+    if (!window.itemqBarcodePrintState) {
+      window.itemqBarcodePrintState = {
+        inProgress: false,
+        handlerBound: false,
+      };
+    }
+    return window.itemqBarcodePrintState;
+  };
 
   const saveAfterPrint = async () => {
     const form = document.getElementById("barcode-selection");
@@ -128,7 +136,8 @@
   };
 
   const handlePrint = async () => {
-    printInProgress = true;
+    const state = getPrintState();
+    state.inProgress = true;
     await preloadBarcodeImages();
     window.print();
   };
@@ -142,21 +151,29 @@
     });
   };
 
-  window.addEventListener("afterprint", async () => {
-    if (!printInProgress) return;
-    printInProgress = false;
-    const shouldSave = window.confirm("Save generated barcodes for this print?");
-    if (!shouldSave) return;
-    await saveAfterPrint();
-  });
+  const bindAfterPrint = () => {
+    const state = getPrintState();
+    if (state.handlerBound) return;
+    state.handlerBound = true;
+    window.addEventListener("afterprint", async () => {
+      const currentState = getPrintState();
+      if (!currentState.inProgress) return;
+      currentState.inProgress = false;
+      const shouldSave = window.confirm("Save generated barcodes for this print?");
+      if (!shouldSave) return;
+      await saveAfterPrint();
+    });
+  };
 
   document.addEventListener("DOMContentLoaded", () => {
     updateSelectAllLabel();
     setupPrintButton();
+    bindAfterPrint();
   });
   document.addEventListener("htmx:afterSwap", () => {
     updateSelectAllLabel();
     setupPrintButton();
+    bindAfterPrint();
   });
 </script>
 
