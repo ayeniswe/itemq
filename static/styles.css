@@ -979,6 +979,7 @@ main {
   .barcode-card {
     break-inside: avoid;
     page-break-inside: avoid;
+    display: table;
     border: none;
     padding: 0;
     background: transparent;
