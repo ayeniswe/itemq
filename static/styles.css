@@ -854,8 +854,13 @@ main {
   padding: 0.5rem;
   background: #f8fafc;
   border-radius: 10px;
+<<<<<<< Updated upstream
   width: 100%;
   flex: 1;
+=======
+  flex: 1;
+  min-width: 0;
+>>>>>>> Stashed changes
 }
 
 .barcode-art img {
@@ -952,11 +957,15 @@ main {
 @media print {
   body * {
     visibility: hidden;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   #barcode-preview,
   #barcode-preview * {
     visibility: visible;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   #barcode-preview {
@@ -966,6 +975,8 @@ main {
     padding: 0;
     margin: 0;
     background: #ffffff;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .barcode-preview-grid {
@@ -974,6 +985,8 @@ main {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .barcode-card {
@@ -989,12 +1002,16 @@ main {
   .barcode-card-header,
   .barcode-card-footer {
     display: none;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .barcode-art {
     padding: 0;
     background: transparent;
     border-radius: 0;
+        break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
