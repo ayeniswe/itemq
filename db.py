@@ -116,7 +116,7 @@ class SQLiteInventoryDB:
                 """
                 SELECT id, name, barcode, quantity, image_path, source, created_at
                 FROM inventory
-                ORDER BY created_at DESC
+                ORDER BY barcode COLLATE NOCASE ASC, created_at DESC
                 """
             ).fetchall()
 
@@ -125,7 +125,7 @@ class SQLiteInventoryDB:
             SELECT id, name, barcode, quantity, image_path, source, created_at
             FROM inventory
             WHERE source = 'local'
-            ORDER BY created_at DESC
+            ORDER BY barcode COLLATE NOCASE ASC, created_at DESC
             """
         ).fetchall()
 
