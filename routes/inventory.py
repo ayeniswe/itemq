@@ -18,9 +18,11 @@ from db import (
     delete_inventory_item,
     get_inventory_item,
     get_inventory_item_by_barcode,
+    get_plugin,
 )
-from model import InventoryItem
+from model import InventoryItem, Plugin
 from services.barcode import generate_barcode
+from services.notion_worker import update_notion_quantity_by_barcode
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -231,6 +233,32 @@ async def adjust_inventory_by_barcode(payload: InventoryAdjustmentPayload):
 
     delta = payload.quantity if payload.direction == "IN" else -payload.quantity
     new_quantity = item.quantity + delta
+    if item.source == "notion":
+        plugin_row = get_plugin("notion")
+        if plugin_row is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Notion is not connected for this inventory item.",
+            )
+        plugin_config = Plugin.from_row(plugin_row)
+        if plugin_config is None or not plugin_config.config:
+            raise HTTPException(
+                status_code=400,
+                detail="Notion is not connected for this inventory item.",
+            )
+
+        updated_rows = update_notion_quantity_by_barcode(
+            plugin_config.config["token"],
+            plugin_config.config["database_id"],
+            item.barcode,
+            new_quantity,
+        )
+        if updated_rows == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="No matching Notion row found for this barcode.",
+            )
+
     update_inventory_quantity(item.id, new_quantity)
 
     return {

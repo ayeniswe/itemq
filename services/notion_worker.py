@@ -201,6 +201,65 @@ def fetch_database_rows(token: str, database_id: str) -> Iterable[dict]:
                 break
 
 
+def update_notion_quantity_by_barcode(
+    token: str,
+    database_id: str,
+    barcode: str,
+    quantity: int,
+) -> int:
+    notion = NotionClient(auth=token)
+
+    db = notion.databases.retrieve(database_id=database_id)
+    sources = [
+        notion.data_sources.retrieve(data_source_id=src.get("id"))
+        for src in db.get("data_sources", [])
+    ]
+
+    updated = 0
+
+    for src in sources:
+        source_id = src.get("id")
+        barcode_prop = src.get("properties", {}).get("Barcode", {})
+        prop_type = barcode_prop.get("type")
+
+        if prop_type == "title":
+            filter_payload = {
+                "property": "Barcode",
+                "title": {"equals": barcode},
+            }
+        else:
+            filter_payload = {
+                "property": "Barcode",
+                "rich_text": {"equals": barcode},
+            }
+
+        query = None
+        while True:
+            query = notion.data_sources.query(
+                data_source_id=source_id,
+                filter=filter_payload,
+                start_cursor=query.get("next_cursor") if query else None,
+            )
+
+            results = query.get("results", [])
+            if not results:
+                break
+
+            for row in results:
+                notion.pages.update(
+                    page_id=row.get("id"),
+                    properties={
+                        "Quantity": {"number": quantity},
+                    },
+                )
+                updated += 1
+
+            if not query.get("has_more"):
+                break
+
+    return updated
+
+
 def _build_barcode_property(barcode_prop: dict, barcode: str) -> dict:
     prop_type = barcode_prop.get("type")
     if prop_type == "title":
