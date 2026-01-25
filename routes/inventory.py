@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import UploadFile, File
 from pathlib import Path
+from pydantic import BaseModel, Field, validator
+from datetime import datetime
 import uuid
+from typing import Literal
 
 from db import (
     add_inventory_item,
@@ -14,12 +17,27 @@ from db import (
     delete_inventory_by_source,
     delete_inventory_item,
     get_inventory_item,
+    get_inventory_item_by_barcode,
 )
 from model import InventoryItem
 from services.barcode import generate_barcode
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+
+class InventoryAdjustmentPayload(BaseModel):
+    code: str = Field(..., min_length=1)
+    direction: Literal["IN", "OUT"]
+    quantity: int = Field(..., gt=0)
+    timestamp: datetime
+    redacted: bool
+
+    @validator("direction", pre=True)
+    def normalize_direction(cls, value: str) -> str:
+        if isinstance(value, str):
+            value = value.upper()
+        return value
 
 
 # -----------------------------
@@ -193,3 +211,35 @@ async def edit_inventory_quantity_cell(
         "partials/inventory_quantity_edit.html",
         {"request": request, "item": item},
     )
+
+
+@router.post("/inventory/adjust")
+async def adjust_inventory_by_barcode(payload: InventoryAdjustmentPayload):
+    item_row = get_inventory_item_by_barcode(payload.code)
+    if item_row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No inventory item found for barcode '{payload.code}'.",
+        )
+
+    item = InventoryItem.from_row(item_row)
+    if item is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No inventory item found for barcode '{payload.code}'.",
+        )
+
+    delta = payload.quantity if payload.direction == "IN" else -payload.quantity
+    new_quantity = item.quantity + delta
+    update_inventory_quantity(item.id, new_quantity)
+
+    return {
+        "status": "ok",
+        "item_id": item.id,
+        "barcode": item.barcode,
+        "previous_quantity": item.quantity,
+        "new_quantity": new_quantity,
+        "direction": payload.direction,
+        "timestamp": payload.timestamp.isoformat(),
+        "redacted": payload.redacted,
+    }
