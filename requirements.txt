@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+notion-client
+python-barcode
+Pillow
+qrcode
+jinja2
+python-multipart
