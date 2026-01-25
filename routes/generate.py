@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from io import BytesIO
+
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from db import (
@@ -16,6 +18,7 @@ from services.barcode_rendering import (
     normalize_format,
     save_barcode_image,
 )
+from services.barcode_pdf import BarcodeSheetPDF
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -88,7 +91,7 @@ async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int,
 
 def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
     expanded = []
-    for barcode in barcodes:
+    for barcode in sorted(barcodes, key=lambda entry: entry.get("name", "").casefold()):
         count = barcode.get("quantity", 1)
         for _ in range(max(count, 1)):
             expanded.append({**barcode, "quantity": 1})
@@ -161,7 +164,7 @@ async def generate_create(
     )
 
 
-@router.post("/generate/print", response_class=HTMLResponse)
+@router.post("/generate/print")
 async def generate_print(
     request: Request,
 ):
@@ -179,12 +182,24 @@ async def generate_print(
         )
     barcodes = _build_barcode_preview(items, quantities, normalized_format)
     print_barcodes = _expand_barcodes_for_print(barcodes)
-    return templates.TemplateResponse(
-        "partials/barcode_preview.html",
-        {
-            "request": request,
-            "barcodes": print_barcodes,
-            "selected_format": _format_summary(barcodes),
-            "selection_count": sum(quantities.values()),
-        },
+    media_root = Path("data/media")
+    label_paths = [media_root / barcode["label_path"] for barcode in print_barcodes]
+
+    try:
+        pdf_bytes = BarcodeSheetPDF().build(label_paths)
+    except (RuntimeError, FileNotFoundError, ValueError) as exc:
+        return templates.TemplateResponse(
+            "partials/barcode_print_error.html",
+            {
+                "request": request,
+                "message": str(exc),
+            },
+            status_code=400,
+        )
+
+    headers = {"Content-Disposition": "inline; filename=barcode-labels.pdf"}
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers=headers,
     )
