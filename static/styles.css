@@ -203,6 +203,83 @@ main {
   font-weight: 600;
 }
 
+.inventory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.inventory-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  min-width: 220px;
+  flex: 1 1 260px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.inventory-search:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.inventory-search-icon {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.inventory-search input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.inventory-search input:focus {
+  outline: none;
+}
+
+.inventory-search-clear {
+  border: none;
+  background: #f1f5f9;
+  color: #475569;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.inventory-search-clear:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.inventory-search-meta {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.inventory-empty {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  color: #64748b;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
 .inventory-card {
   background: #ffffff;
   border-radius: 14px;
