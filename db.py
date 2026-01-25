@@ -275,9 +275,6 @@ class SQLiteInventoryDB:
         inventory_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory"
         ).fetchone()["count"]
-        barcode_count = self.conn.execute(
-            "SELECT COALESCE(SUM(quantity), 0) AS count FROM barcode_labels"
-        ).fetchone()["count"]
         low_stock_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory WHERE quantity <= ?",
             (low_stock_threshold,),
@@ -285,7 +282,6 @@ class SQLiteInventoryDB:
 
         return {
             "total_items": int(inventory_count or 0),
-            "total_barcodes": int(barcode_count or 0),
             "low_stock": int(low_stock_count or 0),
         }
 
