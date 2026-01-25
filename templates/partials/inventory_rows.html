@@ -1,5 +1,6 @@
 {% for item in items %}
-<tr class="inventory-row">
+<tr class="inventory-row"
+    data-search="{{ item.name }} {{ item.barcode }} {{ item.source }}">
   <td class="inventory-cell">
     <div class="inventory-image-slot">
       {% if item.image_path %}

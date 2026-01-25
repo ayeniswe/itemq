@@ -4,24 +4,27 @@
   <h1>Your Inventory</h1>
   <p class="subtitle">A simple, organized view of everything you have.</p>
 
-  <label class="inventory-toggle">
-    <input type="checkbox"
-           id="include-notion-toggle"
-           name="include_notion"
-           value="true"
-           hx-get="/inventory/table"
-           hx-target="#inventory-table"
-           hx-swap="innerHTML"
-           hx-include="this"
-           {% if request.query_params.get('include_notion') %}
-           checked
-           {% endif %}>
-    <span>Include Notion Inventory</span>
-  </label>
-  <button id="inventory-add-toggle"
-          class="btn-secondary inventory-add-toggle">
-    + Add inventory item
-  </button>
+  <div class="inventory-actions">
+    <label class="inventory-toggle">
+      <input type="checkbox"
+             id="include-notion-toggle"
+             name="include_notion"
+             value="true"
+             hx-get="/inventory/table"
+             hx-target="#inventory-table"
+             hx-swap="innerHTML"
+             hx-include="this"
+             {% if request.query_params.get('include_notion') %}
+             checked
+             {% endif %}>
+      <span>Include Notion Inventory</span>
+    </label>
+
+    <button id="inventory-add-toggle"
+            class="btn-secondary inventory-add-toggle">
+      + Add inventory item
+    </button>
+  </div>
 
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
     <form id="inventory-add-card"
@@ -60,6 +63,26 @@
 
 <div class="inventory-card">
   <div class="inventory-table-wrapper">
+    <div class="inventory-search-row">
+      <div class="inventory-search" role="search">
+        <span class="inventory-search-icon" aria-hidden="true">🔎</span>
+        <input id="inventory-search"
+               type="search"
+               placeholder="Search by name, barcode, or source"
+               autocomplete="off"
+               aria-label="Search inventory items">
+        <button type="button"
+                id="inventory-search-clear"
+                class="inventory-search-clear"
+                aria-label="Clear search">
+          ×
+        </button>
+      </div>
+      <span id="inventory-search-count" class="inventory-muted">Showing all items</span>
+    </div>
+    <div id="inventory-search-empty" class="inventory-empty" hidden>
+      No matching items. Try a different search.
+    </div>
     <table class="inventory-table">
       <thead>
         <tr>
@@ -110,6 +133,73 @@
 
     // Trigger initial load using cached preference
     requestTable();
+  })();
+</script>
+
+<script>
+  (function () {
+    const searchInput = document.getElementById("inventory-search");
+    const clearButton = document.getElementById("inventory-search-clear");
+    const tableBody = document.getElementById("inventory-table");
+    const emptyState = document.getElementById("inventory-search-empty");
+    const countLabel = document.getElementById("inventory-search-count");
+
+    if (!searchInput || !clearButton || !tableBody || !countLabel) return;
+
+    let rows = [];
+
+    const syncRows = () => {
+      rows = Array.from(tableBody.querySelectorAll(".inventory-row"));
+    };
+
+    const updateCount = (visibleCount, totalCount) => {
+      if (!countLabel) return;
+      if (!searchInput.value.trim()) {
+        countLabel.textContent = "Showing all items";
+        return;
+      }
+      countLabel.textContent = `Showing ${visibleCount} of ${totalCount} items`;
+    };
+
+    const applyFilter = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      let visibleCount = 0;
+
+      rows.forEach((row) => {
+        const text = (row.dataset.search || "").toLowerCase();
+        const matches = !query || text.includes(query);
+        row.hidden = !matches;
+        if (matches) visibleCount += 1;
+      });
+
+      const totalCount = rows.length;
+      updateCount(visibleCount, totalCount);
+
+      if (emptyState) {
+        emptyState.hidden = !query || visibleCount > 0;
+      }
+
+      clearButton.hidden = !searchInput.value;
+    };
+
+    searchInput.addEventListener("input", applyFilter);
+    searchInput.addEventListener("search", applyFilter);
+
+    clearButton.addEventListener("click", () => {
+      searchInput.value = "";
+      searchInput.focus();
+      applyFilter();
+    });
+
+    document.body.addEventListener("htmx:afterSwap", (event) => {
+      if (event.target && event.target.id === "inventory-table") {
+        syncRows();
+        applyFilter();
+      }
+    });
+
+    syncRows();
+    applyFilter();
   })();
 </script>
 
