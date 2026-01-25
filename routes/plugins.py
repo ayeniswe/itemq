@@ -51,7 +51,6 @@ def _start_notion_worker(plugin: dict | None) -> None:
             for row in fetch_database_rows(plugin["config"]["token"], plugin["config"]["database_id"]):
                 if stop_event.is_set():
                     break
-
                 add_inventory_item(**row, source="notion")
         except Exception:
             errored = True

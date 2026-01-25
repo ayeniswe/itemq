@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import threading
-import time
 from typing import Callable, Iterable, Tuple
 from notion_client import Client as NotionClient, extract_database_id
 
@@ -189,7 +188,7 @@ def fetch_database_rows(token: str, database_id: str) -> Iterable[dict]:
                     for rt in name_parts
                 )
 
-                quantity = props["Quantity"]["number"]
+                quantity = props.get("Quantity", {}).get("number") or 0
 
                 yield {
                     "barcode": barcode,
