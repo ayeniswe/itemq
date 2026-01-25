@@ -940,6 +940,33 @@ main {
   font-size: 0.85rem;
 }
 
+.barcode-print-grid {
+  display: none;
+}
+
+.barcode-print-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.5rem;
+  background: #ffffff;
+}
+
+.barcode-print-art img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.barcode-print-value {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #111827;
+}
+
 .barcode-missing {
   text-align: center;
   color: #9ca3af;
@@ -968,33 +995,30 @@ main {
     background: #ffffff;
   }
 
-  .barcode-preview-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    max-height: none;
-    overflow: visible;
-    padding-right: 0;
-  }
-
-  .barcode-card {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    border: none;
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
   .barcode-preview-header,
-  .barcode-card-header,
-  .barcode-card-footer {
+  .barcode-preview-grid {
     display: none;
   }
 
-  .barcode-art {
-    padding: 0;
-    background: transparent;
-    border-radius: 0;
+  .barcode-print-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5in;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .barcode-print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    padding: 0.4in;
+    box-shadow: none;
+  }
+
+  .barcode-print-value {
+    font-size: 10pt;
   }
 }
 

@@ -42,4 +42,23 @@
       </div>
     {% endfor %}
   </div>
+  <div class="barcode-print-grid" aria-hidden="true">
+    {% for barcode in items %}
+      <div class="barcode-print-card">
+        <div class="barcode-print-art">
+          {% if barcode.label_path %}
+            <img src="/media/{{ barcode.label_path }}"
+                 alt="Barcode for {{ barcode.barcode }}"
+                 loading="eager" />
+          {% else %}
+            <div class="barcode-missing">
+              <p>Label not generated yet.</p>
+              <span>Click Generate to create it.</span>
+            </div>
+          {% endif %}
+        </div>
+        <div class="barcode-print-value">{{ barcode.barcode }}</div>
+      </div>
+    {% endfor %}
+  </div>
 {% endif %}
