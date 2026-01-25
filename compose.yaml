@@ -1,0 +1,14 @@
+services:
+  itemq:
+    build: .
+    image: itemq:local
+    ports:
+      - "8080:8080"
+    environment:
+      ITEMQ_DB_PATH: /data/itemq.db
+      ITEMQ_DATA_DIR: /data
+    volumes:
+      - itemq_data:/data
+
+volumes:
+  itemq_data:
