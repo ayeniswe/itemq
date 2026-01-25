@@ -164,13 +164,39 @@
       }
       return;
     }
-    const html = await response.text();
-    preview.innerHTML = html;
-    if (window.htmx) {
-      window.htmx.process(preview);
+    const pdfBlob = await response.blob();
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const printWindow = window.open(pdfUrl, "_blank");
+    if (printWindow) {
+      printWindow.addEventListener(
+        "load",
+        () => {
+          printWindow.focus();
+          printWindow.print();
+        },
+        { once: true }
+      );
+      printWindow.addEventListener(
+        "afterprint",
+        () => {
+          URL.revokeObjectURL(pdfUrl);
+        },
+        { once: true }
+      );
+      setTimeout(() => {
+        URL.revokeObjectURL(pdfUrl);
+      }, 60000);
+    } else {
+      const link = document.createElement("a");
+      link.href = pdfUrl;
+      link.download = "barcode-labels.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => {
+        URL.revokeObjectURL(pdfUrl);
+      }, 60000);
     }
-    await preloadBarcodeImages();
-    window.print();
   };
 
   const updateActionState = () => {
