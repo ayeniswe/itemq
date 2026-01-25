@@ -276,7 +276,12 @@ main {
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #ffffff;
+  padding-bottom: 0.75rem;
 }
 
 .inventory-search-row .inventory-muted {
@@ -304,6 +309,8 @@ main {
 .inventory-table-wrapper {
   max-height: 60vh;
   overflow: auto;
+  position: relative;
+  --inventory-sticky-offset: 4.25rem;
 }
 
 /* Table */
@@ -318,11 +325,15 @@ main {
 }
 
 .inventory-table th {
+  position: sticky;
+  top: var(--inventory-sticky-offset);
+  z-index: 2;
   text-align: left;
   font-weight: 500;
   color: #374151;
   padding: 0.75rem;
   border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
 .inventory-image-slot {
