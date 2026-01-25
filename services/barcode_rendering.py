@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
+import uuid
 import base64
 
 import barcode
@@ -31,11 +33,23 @@ def normalize_format(requested: str | None) -> str:
 
 
 def render_barcode_image_data(value: str, fmt: str) -> str:
-    if fmt == "qr":
-        image = _render_qr(value)
-    else:
-        image = _render_code128(value)
+    image = render_barcode_image(value, fmt)
     return _image_to_data_uri(image)
+
+
+def render_barcode_image(value: str, fmt: str) -> Image.Image:
+    if fmt == "qr":
+        return _render_qr(value)
+    return _render_code128(value)
+
+
+def save_barcode_image(value: str, fmt: str, output_dir: Path) -> str:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    image = render_barcode_image(value, fmt)
+    filename = f"{uuid.uuid4().hex}.png"
+    file_path = output_dir / filename
+    image.save(file_path, format="PNG")
+    return filename
 
 
 def _render_code128(value: str) -> Image.Image:

@@ -16,12 +16,13 @@ CREATE TABLE IF NOT EXISTS plugins (
     config JSON
 );
 
-CREATE TABLE IF NOT EXISTS barcode_generations (
+CREATE TABLE IF NOT EXISTS barcode_labels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inventory_id INTEGER,
+    inventory_id INTEGER NOT NULL UNIQUE,
     barcode_value TEXT NOT NULL,
     format TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'generated',
+    image_path TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
     generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (inventory_id) REFERENCES inventory(id)
 );

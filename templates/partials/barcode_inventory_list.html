@@ -12,12 +12,31 @@
   {% if items %}
     <div class="barcode-inventory-list">
       {% for item in items %}
+        {% set has_label = item.label_path %}
         <label class="barcode-inventory-row">
-          <input type="checkbox" name="item_ids" value="{{ item.id }}" class="barcode-item-checkbox">
+          <input type="checkbox"
+                 name="item_ids"
+                 value="{{ item.id }}"
+                 class="barcode-item-checkbox"
+                 data-has-label="{{ 'true' if has_label else 'false' }}">
           <div class="barcode-inventory-meta">
             <span class="barcode-item-name">{{ item.name }}</span>
             <span class="barcode-item-value">{{ item.barcode }}</span>
           </div>
+          <div class="barcode-quantity">
+            <span class="barcode-quantity-label">Qty</span>
+            <input type="number"
+                   name="quantity_{{ item.id }}"
+                   min="1"
+                   value="{{ item.label_quantity or 1 }}">
+          </div>
+          <span class="label-status {% if has_label %}label-ready{% else %}label-missing{% endif %}">
+            {% if has_label %}
+              Label ready
+            {% else %}
+              Not generated
+            {% endif %}
+          </span>
         </label>
       {% endfor %}
     </div>

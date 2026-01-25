@@ -51,9 +51,19 @@ class InventoryDB(Protocol):
         item_ids: Iterable[int],
     ) -> Iterable[sqlite3.Row]: ...
 
-    def add_barcode_generations(
+    def list_inventory_with_labels(
         self,
-        entries: Iterable[tuple[int | None, str, str, str]],
+        include_notion: bool,
+    ) -> Iterable[sqlite3.Row]: ...
+
+    def get_inventory_items_with_labels_by_ids(
+        self,
+        item_ids: Iterable[int],
+    ) -> Iterable[sqlite3.Row]: ...
+
+    def upsert_barcode_labels(
+        self,
+        entries: Iterable[tuple[int, str, str, str, int]],
     ) -> None: ...
 
     def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]: ...
@@ -149,6 +159,10 @@ class SQLiteInventoryDB:
 
     def delete_inventory_item(self, item_id: int):
         self.conn.execute(
+            "DELETE FROM barcode_labels WHERE inventory_id = ?",
+            (item_id,),
+        )
+        self.conn.execute(
             "DELETE FROM inventory WHERE id = ?",
             (item_id,),
         )
@@ -181,14 +195,77 @@ class SQLiteInventoryDB:
             ids,
         ).fetchall()
 
-    def add_barcode_generations(
+    def list_inventory_with_labels(self, include_notion: bool = False):
+        base_query = """
+            SELECT inventory.id,
+                   inventory.name,
+                   inventory.barcode,
+                   inventory.quantity,
+                   inventory.image_path,
+                   inventory.source,
+                   inventory.created_at,
+                   barcode_labels.image_path AS label_path,
+                   barcode_labels.format AS label_format,
+                   barcode_labels.quantity AS label_quantity,
+                   barcode_labels.generated_at AS label_generated_at
+            FROM inventory
+            LEFT JOIN barcode_labels
+                ON barcode_labels.inventory_id = inventory.id
+        """
+        if include_notion:
+            query = base_query + " ORDER BY inventory.created_at DESC"
+            return self.conn.execute(query).fetchall()
+
+        query = (
+            base_query
+            + " WHERE inventory.source = 'local' ORDER BY inventory.created_at DESC"
+        )
+        return self.conn.execute(query).fetchall()
+
+    def get_inventory_items_with_labels_by_ids(
         self,
-        entries: Iterable[tuple[int | None, str, str, str]],
+        item_ids: Iterable[int],
+    ) -> Iterable[sqlite3.Row]:
+        ids = list(item_ids)
+        if not ids:
+            return []
+        placeholders = ", ".join("?" for _ in ids)
+        return self.conn.execute(
+            f"""
+            SELECT inventory.id,
+                   inventory.name,
+                   inventory.barcode,
+                   inventory.quantity,
+                   inventory.image_path,
+                   inventory.source,
+                   inventory.created_at,
+                   barcode_labels.image_path AS label_path,
+                   barcode_labels.format AS label_format,
+                   barcode_labels.quantity AS label_quantity,
+                   barcode_labels.generated_at AS label_generated_at
+            FROM inventory
+            LEFT JOIN barcode_labels
+                ON barcode_labels.inventory_id = inventory.id
+            WHERE inventory.id IN ({placeholders})
+            ORDER BY inventory.created_at DESC
+            """,
+            ids,
+        ).fetchall()
+
+    def upsert_barcode_labels(
+        self,
+        entries: Iterable[tuple[int, str, str, str, int]],
     ) -> None:
         self.conn.executemany(
             """
-            INSERT INTO barcode_generations (inventory_id, barcode_value, format, status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO barcode_labels (inventory_id, barcode_value, format, image_path, quantity)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(inventory_id) DO UPDATE SET
+                barcode_value = excluded.barcode_value,
+                format = excluded.format,
+                image_path = excluded.image_path,
+                quantity = excluded.quantity,
+                generated_at = CURRENT_TIMESTAMP
             """,
             list(entries),
         )
@@ -199,7 +276,7 @@ class SQLiteInventoryDB:
             "SELECT COUNT(*) AS count FROM inventory"
         ).fetchone()["count"]
         barcode_count = self.conn.execute(
-            "SELECT COUNT(*) AS count FROM barcode_generations"
+            "SELECT COALESCE(SUM(quantity), 0) AS count FROM barcode_labels"
         ).fetchone()["count"]
         low_stock_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory WHERE quantity <= ?",
@@ -345,10 +422,18 @@ def get_inventory_items_by_ids(item_ids: Iterable[int]):
     return get_db().get_inventory_items_by_ids(item_ids)
 
 
-def add_barcode_generations(
-    entries: Iterable[tuple[int | None, str, str, str]],
+def list_inventory_with_labels(include_notion: bool = False):
+    return get_db().list_inventory_with_labels(include_notion)
+
+
+def get_inventory_items_with_labels_by_ids(item_ids: Iterable[int]):
+    return get_db().get_inventory_items_with_labels_by_ids(item_ids)
+
+
+def upsert_barcode_labels(
+    entries: Iterable[tuple[int, str, str, str, int]],
 ) -> None:
-    get_db().add_barcode_generations(entries)
+    get_db().upsert_barcode_labels(entries)
 
 
 def get_dashboard_metrics(low_stock_threshold: int = 3) -> dict[str, int]:

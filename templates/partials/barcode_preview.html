@@ -19,13 +19,25 @@
           </span>
         </div>
         <div class="barcode-art">
-          <img src="{{ barcode.image_data }}"
-               alt="Barcode for {{ barcode.barcode }}"
-               loading="eager" />
+          {% if barcode.label_path %}
+            <img src="/media/{{ barcode.label_path }}"
+                 alt="Barcode for {{ barcode.barcode }}"
+                 loading="eager" />
+          {% else %}
+            <div class="barcode-missing">
+              <p>Label not generated yet.</p>
+              <span>Click Generate to create it.</span>
+            </div>
+          {% endif %}
         </div>
         <div class="barcode-card-footer">
           <span class="barcode-card-value">{{ barcode.barcode }}</span>
-          <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
+          <div class="barcode-card-meta">
+            {% if barcode.quantity and barcode.quantity > 1 %}
+              <span class="barcode-quantity-pill">x{{ barcode.quantity }}</span>
+            {% endif %}
+            <span class="barcode-format-pill">{{ barcode.format|upper }}</span>
+          </div>
         </div>
       </div>
     {% endfor %}

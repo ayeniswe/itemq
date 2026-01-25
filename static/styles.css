@@ -730,7 +730,7 @@ main {
 
 .barcode-inventory-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.6rem;
@@ -767,6 +767,40 @@ main {
   color: #6b7280;
 }
 
+.barcode-quantity {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  color: #4b5563;
+}
+
+.barcode-quantity input {
+  width: 60px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+.label-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.label-ready {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.label-missing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .barcode-empty {
   font-size: 0.8rem;
   color: #6b7280;
@@ -789,7 +823,7 @@ main {
   gap: 0.75rem;
   max-height: 720px;
   overflow-y: auto;
-  padding-right: 0.25rem;
+  padding-right: 0.75rem;
 }
 
 .barcode-card {
@@ -838,6 +872,20 @@ main {
   color: #4b5563;
 }
 
+.barcode-card-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.barcode-quantity-pill {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .barcode-format-pill {
   font-size: 0.7rem;
   padding: 0.15rem 0.45rem;
@@ -867,6 +915,22 @@ main {
   color: #065f46;
 }
 
+.barcode-status-message {
+  min-height: 1.5rem;
+  margin-top: 0.75rem;
+}
+
+.barcode-warning {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.75rem;
+}
+
 .barcode-empty-preview {
   padding: 0.75rem;
   border-radius: 12px;
@@ -874,6 +938,15 @@ main {
   border: 1px dashed #e5e7eb;
   color: #6b7280;
   font-size: 0.85rem;
+}
+
+.barcode-missing {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 @media print {
