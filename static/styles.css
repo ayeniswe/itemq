@@ -893,6 +893,7 @@ main {
     padding: 0;
     margin: 0;
     background: #ffffff;
+    overflow: visible;
   }
 
   .barcode-preview-grid {
@@ -901,6 +902,8 @@ main {
     max-height: none;
     overflow: visible;
     padding-right: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .barcode-card {
@@ -914,8 +917,13 @@ main {
 
   .barcode-art,
   .barcode-art img {
+    display: block;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .barcode-confirm-banner {
+    display: none;
   }
 
   .barcode-preview-header,
