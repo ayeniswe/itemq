@@ -91,7 +91,7 @@ async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int,
 
 def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
     expanded = []
-    for barcode in sorted(barcodes, key=lambda entry: entry.get("name", "").casefold()):
+    for barcode in sorted(barcodes, key=lambda entry: entry.get("barcode", "").casefold()):
         count = barcode.get("quantity", 1)
         for _ in range(max(count, 1)):
             expanded.append({**barcode, "quantity": 1})
