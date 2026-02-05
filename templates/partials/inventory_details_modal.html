@@ -1,0 +1,75 @@
+<div class="inventory-detail-modal">
+  <div class="inventory-detail-modal-header">
+    <div>
+      <p class="inventory-muted">Edit details</p>
+      <h3 class="inventory-detail-title">{{ item.name }}</h3>
+      <p class="inventory-detail-barcode">Barcode: {{ item.barcode }}</p>
+    </div>
+    <button type="button" class="inventory-overlay-close" aria-label="Close">
+      ×
+    </button>
+  </div>
+
+  <form
+    class="inventory-details-form inventory-details-form-wide"
+    hx-post="/inventory/{{ item.id }}/details"
+    hx-target="#inventory-row-{{ item.id }}"
+    hx-swap="outerHTML"
+  >
+    <input type="hidden" name="refresh_row" value="1">
+    <div class="inventory-details-grid">
+      <label>
+        Group name
+        <input type="text" name="group_name" value="{{ item.group_name or '' }}">
+      </label>
+      <label>
+        Collection name
+        <input type="text" name="collection_name" value="{{ item.collection_name or '' }}">
+      </label>
+      <label>
+        Collection category
+        <input type="text" name="collection_category" value="{{ item.collection_category or '' }}">
+      </label>
+      <label>
+        Occasion
+        <input type="text" name="occasion" value="{{ item.occasion or '' }}">
+      </label>
+      <label>
+        Season
+        <input type="text" name="season" value="{{ item.season or '' }}">
+      </label>
+      <label>
+        Holiday
+        <input type="text" name="holiday" value="{{ item.holiday or '' }}">
+      </label>
+      <label>
+        Emotion
+        <input type="text" name="emotion" value="{{ item.emotion or '' }}">
+      </label>
+      <label>
+        Color
+        <input type="text" name="color" value="{{ item.color or '' }}">
+      </label>
+      <label>
+        Event name
+        <input type="text" name="event_name" value="{{ item.event_name or '' }}">
+      </label>
+      <label>
+        Event date
+        <input type="date" name="event_date" value="{{ item.event_date or '' }}">
+      </label>
+      <label>
+        Event location
+        <input type="text" name="event_location" value="{{ item.event_location or '' }}">
+      </label>
+    </div>
+    <label class="inventory-details-notes">
+      Event notes
+      <textarea name="event_notes" rows="3">{{ item.event_notes or '' }}</textarea>
+    </label>
+    <div class="inventory-details-actions">
+      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="button" class="btn-secondary inventory-overlay-close">Cancel</button>
+    </div>
+  </form>
+</div>

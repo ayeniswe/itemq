@@ -18,15 +18,62 @@ class InventoryDB(Protocol):
         quantity: int,
         source: str,
         image_path: Optional[str],
+        image_hash: Optional[str],
+        group_name: Optional[str],
+        collection_name: Optional[str],
+        collection_category: Optional[str],
+        occasion: Optional[str],
+        season: Optional[str],
+        holiday: Optional[str],
+        emotion: Optional[str],
+        color: Optional[str],
+        event_name: Optional[str],
+        event_date: Optional[str],
+        event_location: Optional[str],
+        event_notes: Optional[str],
+        notion_page_id: Optional[str],
     ) -> int: ...
 
-    def list_inventory(self, include_notion: bool) -> Iterable[sqlite3.Row]: ...
+    def list_inventory(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None],
+        limit: int,
+        offset: int,
+    ) -> Iterable[sqlite3.Row]: ...
+
+    def count_inventory(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None],
+    ) -> int: ...
+
+    def get_inventory_totals(self, include_notion: bool) -> dict[str, int]: ...
 
     def update_inventory_quantity(self, item_id: int, quantity: int) -> None: ...
 
     def update_inventory_name(self, item_id: int, name: str) -> None: ...
 
     def update_inventory_image(self, item_id: int, image_path: str) -> None: ...
+
+    def update_inventory_image_hash(self, item_id: int, image_hash: str) -> None: ...
+
+    def update_inventory_details(
+        self,
+        item_id: int,
+        group_name: Optional[str],
+        collection_name: Optional[str],
+        collection_category: Optional[str],
+        occasion: Optional[str],
+        season: Optional[str],
+        holiday: Optional[str],
+        emotion: Optional[str],
+        color: Optional[str],
+        event_name: Optional[str],
+        event_date: Optional[str],
+        event_location: Optional[str],
+        event_notes: Optional[str],
+    ) -> None: ...
 
     def delete_inventory_by_source(self, source: str) -> None: ...
 
@@ -54,7 +101,21 @@ class InventoryDB(Protocol):
     def list_inventory_with_labels(
         self,
         include_notion: bool,
+        filters: dict[str, str | None],
+        limit: int,
+        offset: int,
     ) -> Iterable[sqlite3.Row]: ...
+
+    def count_inventory_with_labels(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None],
+    ) -> int: ...
+
+    def get_inventory_filter_options(
+        self,
+        include_notion: bool,
+    ) -> dict[str, list[str]]: ...
 
     def get_inventory_items_with_labels_by_ids(
         self,
@@ -89,6 +150,35 @@ class SQLiteInventoryDB:
     def init_schema(self):
         with self.conn:
             self.conn.executescript(Path("models.sql").read_text())
+            self._ensure_inventory_columns()
+
+    def _ensure_inventory_columns(self) -> None:
+        columns = {
+            row["name"]: row["type"]
+            for row in self.conn.execute("PRAGMA table_info(inventory)").fetchall()
+        }
+        desired_columns = {
+            "image_hash": "TEXT",
+            "group_name": "TEXT",
+            "collection_name": "TEXT",
+            "collection_category": "TEXT",
+            "occasion": "TEXT",
+            "season": "TEXT",
+            "holiday": "TEXT",
+            "emotion": "TEXT",
+            "color": "TEXT",
+            "event_name": "TEXT",
+            "event_date": "TEXT",
+            "event_location": "TEXT",
+            "event_notes": "TEXT",
+            "notion_page_id": "TEXT",
+        }
+
+        for column, column_type in desired_columns.items():
+            if column not in columns:
+                self.conn.execute(
+                    f"ALTER TABLE inventory ADD COLUMN {column} {column_type}"
+                )
 
     # -------- Inventory Ops --------
 
@@ -96,38 +186,203 @@ class SQLiteInventoryDB:
         self,
         name: str,
         barcode: str,
-        quantity: int = 1,
+        quantity: int = 0,
         source: str = "local",
         image_path: Optional[str] = None,
+        image_hash: Optional[str] = None,
+        group_name: Optional[str] = None,
+        collection_name: Optional[str] = None,
+        collection_category: Optional[str] = None,
+        occasion: Optional[str] = None,
+        season: Optional[str] = None,
+        holiday: Optional[str] = None,
+        emotion: Optional[str] = None,
+        color: Optional[str] = None,
+        event_name: Optional[str] = None,
+        event_date: Optional[str] = None,
+        event_location: Optional[str] = None,
+        event_notes: Optional[str] = None,
+        notion_page_id: Optional[str] = None,
     ) -> int:
         cursor = self.conn.execute(
             """
-            INSERT INTO inventory (name, barcode, quantity, source, image_path)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO inventory (
+                name,
+                barcode,
+                quantity,
+                source,
+                image_path,
+                image_hash,
+                group_name,
+                collection_name,
+                collection_category,
+                occasion,
+                season,
+                holiday,
+                emotion,
+                color,
+                event_name,
+                event_date,
+                event_location,
+                event_notes,
+                notion_page_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (name, barcode, quantity, source, image_path),
+            (
+                name,
+                barcode,
+                quantity,
+                source,
+                image_path,
+                image_hash,
+                group_name,
+                collection_name,
+                collection_category,
+                occasion,
+                season,
+                holiday,
+                emotion,
+                color,
+                event_name,
+                event_date,
+                event_location,
+                event_notes,
+                notion_page_id,
+            ),
         )
         self.conn.commit()
         return cursor.lastrowid
 
-    def list_inventory(self, include_notion: bool = False):
-        if include_notion:
-            return self.conn.execute(
-                """
-                SELECT id, name, barcode, quantity, image_path, source, created_at
-                FROM inventory
-                ORDER BY barcode COLLATE NOCASE ASC, created_at DESC
-                """
-            ).fetchall()
+    def _build_inventory_filters(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None],
+        table_alias: str = "inventory",
+    ) -> tuple[str, list[object]]:
+        conditions = []
+        params: list[object] = []
 
-        return self.conn.execute(
-            """
-            SELECT id, name, barcode, quantity, image_path, source, created_at
+        if not include_notion:
+            conditions.append(f"{table_alias}.source = 'local'")
+
+        search = (filters.get("search") or "").strip().lower()
+        if search:
+            like = f"%{search}%"
+            search_columns = [
+                "name",
+                "barcode",
+                "group_name",
+                "collection_name",
+                "collection_category",
+                "occasion",
+                "season",
+                "holiday",
+                "emotion",
+                "color",
+                "event_name",
+                "event_location",
+                "event_notes",
+            ]
+            search_conditions = []
+            for column in search_columns:
+                search_conditions.append(
+                    f"LOWER(COALESCE({table_alias}.{column}, '')) LIKE ?"
+                )
+                params.append(like)
+            conditions.append("(" + " OR ".join(search_conditions) + ")")
+
+        filter_columns = {
+            "group_name": "group_name",
+            "collection_name": "collection_name",
+            "collection_category": "collection_category",
+            "occasion": "occasion",
+            "season": "season",
+            "holiday": "holiday",
+            "emotion": "emotion",
+            "color": "color",
+            "event_name": "event_name",
+        }
+
+        for filter_key, column in filter_columns.items():
+            value = (filters.get(filter_key) or "").strip()
+            if value:
+                conditions.append(f"{table_alias}.{column} = ?")
+                params.append(value)
+
+        where_clause = ""
+        if conditions:
+            where_clause = " WHERE " + " AND ".join(conditions)
+
+        return where_clause, params
+
+    def _inventory_select_fields(self) -> str:
+        return """
+            id,
+            name,
+            barcode,
+            quantity,
+            image_path,
+            image_hash,
+            group_name,
+            collection_name,
+            collection_category,
+            occasion,
+            season,
+            holiday,
+            emotion,
+            color,
+            event_name,
+            event_date,
+            event_location,
+            event_notes,
+            notion_page_id,
+            source,
+            created_at
+        """
+
+    def list_inventory(
+        self,
+        include_notion: bool = False,
+        filters: dict[str, str | None] | None = None,
+        limit: int = 25,
+        offset: int = 0,
+    ):
+        filters = filters or {}
+        where_clause, params = self._build_inventory_filters(include_notion, filters)
+        query = f"""
+            SELECT {self._inventory_select_fields()}
             FROM inventory
-            WHERE source = 'local'
+            {where_clause}
             ORDER BY barcode COLLATE NOCASE ASC, created_at DESC
-            """
-        ).fetchall()
+            LIMIT ? OFFSET ?
+        """
+        return self.conn.execute(query, (*params, limit, offset)).fetchall()
+
+    def count_inventory(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None] | None = None,
+    ) -> int:
+        filters = filters or {}
+        where_clause, params = self._build_inventory_filters(include_notion, filters)
+        query = f"SELECT COUNT(*) AS count FROM inventory {where_clause}"
+        return int(self.conn.execute(query, params).fetchone()["count"] or 0)
+
+    def get_inventory_totals(self, include_notion: bool) -> dict[str, int]:
+        where_clause, params = self._build_inventory_filters(
+            include_notion, {}, table_alias="inventory"
+        )
+        query = f"""
+            SELECT COUNT(*) AS count, COALESCE(SUM(quantity), 0) AS total_quantity
+            FROM inventory
+            {where_clause}
+        """
+        row = self.conn.execute(query, params).fetchone()
+        return {
+            "total_items": int(row["count"] or 0),
+            "total_quantity": int(row["total_quantity"] or 0),
+        }
 
     def update_inventory_quantity(self, item_id: int, quantity: int):
         self.conn.execute(
@@ -150,6 +405,63 @@ class SQLiteInventoryDB:
         )
         self.conn.commit()
 
+    def update_inventory_image_hash(self, item_id: int, image_hash: str):
+        self.conn.execute(
+            "UPDATE inventory SET image_hash = ? WHERE id = ?",
+            (image_hash, item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_details(
+        self,
+        item_id: int,
+        group_name: Optional[str],
+        collection_name: Optional[str],
+        collection_category: Optional[str],
+        occasion: Optional[str],
+        season: Optional[str],
+        holiday: Optional[str],
+        emotion: Optional[str],
+        color: Optional[str],
+        event_name: Optional[str],
+        event_date: Optional[str],
+        event_location: Optional[str],
+        event_notes: Optional[str],
+    ) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory
+            SET group_name = ?,
+                collection_name = ?,
+                collection_category = ?,
+                occasion = ?,
+                season = ?,
+                holiday = ?,
+                emotion = ?,
+                color = ?,
+                event_name = ?,
+                event_date = ?,
+                event_location = ?,
+                event_notes = ?
+            WHERE id = ?
+            """,
+            (
+                group_name,
+                collection_name,
+                collection_category,
+                occasion,
+                season,
+                holiday,
+                emotion,
+                color,
+                event_name,
+                event_date,
+                event_location,
+                event_notes,
+                item_id,
+            ),
+        )
+        self.conn.commit()
     def delete_inventory_by_source(self, source: str):
         self.conn.execute(
             "DELETE FROM inventory WHERE source = ?",
@@ -170,13 +482,21 @@ class SQLiteInventoryDB:
 
     def get_inventory_item(self, item_id: int):
         return self.conn.execute(
-            "SELECT id, name, barcode, quantity, image_path, source, created_at FROM inventory WHERE id = ?",
+            f"""
+            SELECT {self._inventory_select_fields()}
+            FROM inventory
+            WHERE id = ?
+            """,
             (item_id,),
         ).fetchone()
 
     def get_inventory_item_by_barcode(self, barcode: str):
         return self.conn.execute(
-            "SELECT id, name, barcode, quantity, image_path, source, created_at FROM inventory WHERE barcode = ?",
+            f"""
+            SELECT {self._inventory_select_fields()}
+            FROM inventory
+            WHERE barcode = ?
+            """,
             (barcode,),
         ).fetchone()
 
@@ -187,21 +507,42 @@ class SQLiteInventoryDB:
         placeholders = ", ".join("?" for _ in ids)
         return self.conn.execute(
             f"""
-            SELECT id, name, barcode, quantity, image_path, source, created_at
+            SELECT {self._inventory_select_fields()}
             FROM inventory
             WHERE id IN ({placeholders})
-            ORDER BY created_at DESC
+            ORDER BY barcode COLLATE NOCASE ASC, created_at DESC
             """,
             ids,
         ).fetchall()
 
-    def list_inventory_with_labels(self, include_notion: bool = False):
+    def list_inventory_with_labels(
+        self,
+        include_notion: bool = False,
+        filters: dict[str, str | None] | None = None,
+        limit: int = 25,
+        offset: int = 0,
+    ):
+        filters = filters or {}
         base_query = """
             SELECT inventory.id,
                    inventory.name,
                    inventory.barcode,
                    inventory.quantity,
                    inventory.image_path,
+                   inventory.image_hash,
+                   inventory.group_name,
+                   inventory.collection_name,
+                   inventory.collection_category,
+                   inventory.occasion,
+                   inventory.season,
+                   inventory.holiday,
+                   inventory.emotion,
+                   inventory.color,
+                   inventory.event_name,
+                   inventory.event_date,
+                   inventory.event_location,
+                   inventory.event_notes,
+                   inventory.notion_page_id,
                    inventory.source,
                    inventory.created_at,
                    barcode_labels.image_path AS label_path,
@@ -212,15 +553,62 @@ class SQLiteInventoryDB:
             LEFT JOIN barcode_labels
                 ON barcode_labels.inventory_id = inventory.id
         """
-        if include_notion:
-            query = base_query + " ORDER BY inventory.created_at DESC"
-            return self.conn.execute(query).fetchall()
-
+        where_clause, params = self._build_inventory_filters(
+            include_notion, filters, table_alias="inventory"
+        )
         query = (
             base_query
-            + " WHERE inventory.source = 'local' ORDER BY inventory.created_at DESC"
+            + where_clause
+            + " ORDER BY inventory.barcode COLLATE NOCASE ASC, inventory.created_at DESC"
+            + " LIMIT ? OFFSET ?"
         )
-        return self.conn.execute(query).fetchall()
+        return self.conn.execute(query, (*params, limit, offset)).fetchall()
+
+    def count_inventory_with_labels(
+        self,
+        include_notion: bool,
+        filters: dict[str, str | None] | None = None,
+    ) -> int:
+        filters = filters or {}
+        where_clause, params = self._build_inventory_filters(
+            include_notion, filters, table_alias="inventory"
+        )
+        query = f"""
+            SELECT COUNT(*) AS count
+            FROM inventory
+            LEFT JOIN barcode_labels
+                ON barcode_labels.inventory_id = inventory.id
+            {where_clause}
+        """
+        return int(self.conn.execute(query, params).fetchone()["count"] or 0)
+
+    def get_inventory_filter_options(self, include_notion: bool) -> dict[str, list[str]]:
+        filters = {}
+        where_clause, params = self._build_inventory_filters(include_notion, {})
+        filter_where = where_clause or " WHERE 1=1"
+        fields = [
+            "group_name",
+            "collection_name",
+            "collection_category",
+            "occasion",
+            "season",
+            "holiday",
+            "emotion",
+            "color",
+            "event_name",
+        ]
+        for field in fields:
+            query = f"""
+                SELECT DISTINCT {field} AS value
+                FROM inventory
+                {filter_where}
+                AND {field} IS NOT NULL
+                AND TRIM({field}) != ''
+                ORDER BY {field} COLLATE NOCASE ASC
+            """
+            rows = self.conn.execute(query, params).fetchall()
+            filters[field] = [row["value"] for row in rows]
+        return filters
 
     def get_inventory_items_with_labels_by_ids(
         self,
@@ -237,6 +625,20 @@ class SQLiteInventoryDB:
                    inventory.barcode,
                    inventory.quantity,
                    inventory.image_path,
+                   inventory.image_hash,
+                   inventory.group_name,
+                   inventory.collection_name,
+                   inventory.collection_category,
+                   inventory.occasion,
+                   inventory.season,
+                   inventory.holiday,
+                   inventory.emotion,
+                   inventory.color,
+                   inventory.event_name,
+                   inventory.event_date,
+                   inventory.event_location,
+                   inventory.event_notes,
+                   inventory.notion_page_id,
                    inventory.source,
                    inventory.created_at,
                    barcode_labels.image_path AS label_path,
@@ -247,7 +649,7 @@ class SQLiteInventoryDB:
             LEFT JOIN barcode_labels
                 ON barcode_labels.inventory_id = inventory.id
             WHERE inventory.id IN ({placeholders})
-            ORDER BY inventory.created_at DESC
+            ORDER BY inventory.barcode COLLATE NOCASE ASC, inventory.created_at DESC
             """,
             ids,
         ).fetchall()
@@ -357,17 +759,65 @@ def get_db() -> InventoryDB:
 def add_inventory_item(
     name: str,
     barcode: str,
-    quantity: int = 1,
+    quantity: int = 0,
     source: str = "local",
     image_path: Optional[str] = None,
+    image_hash: Optional[str] = None,
+    group_name: Optional[str] = None,
+    collection_name: Optional[str] = None,
+    collection_category: Optional[str] = None,
+    occasion: Optional[str] = None,
+    season: Optional[str] = None,
+    holiday: Optional[str] = None,
+    emotion: Optional[str] = None,
+    color: Optional[str] = None,
+    event_name: Optional[str] = None,
+    event_date: Optional[str] = None,
+    event_location: Optional[str] = None,
+    event_notes: Optional[str] = None,
+    notion_page_id: Optional[str] = None,
 ) -> int:
     return get_db().add_inventory_item(
-        name, barcode, quantity, source, image_path
+        name,
+        barcode,
+        quantity,
+        source,
+        image_path,
+        image_hash,
+        group_name,
+        collection_name,
+        collection_category,
+        occasion,
+        season,
+        holiday,
+        emotion,
+        color,
+        event_name,
+        event_date,
+        event_location,
+        event_notes,
+        notion_page_id,
     )
 
 
-def list_inventory(include_notion: bool = False):
-    return get_db().list_inventory(include_notion)
+def list_inventory(
+    include_notion: bool = False,
+    filters: dict[str, str | None] | None = None,
+    limit: int = 25,
+    offset: int = 0,
+):
+    return get_db().list_inventory(include_notion, filters or {}, limit, offset)
+
+
+def count_inventory(
+    include_notion: bool = False,
+    filters: dict[str, str | None] | None = None,
+):
+    return get_db().count_inventory(include_notion, filters or {})
+
+
+def get_inventory_totals(include_notion: bool = False) -> dict[str, int]:
+    return get_db().get_inventory_totals(include_notion)
 
 
 def update_inventory_quantity(item_id: int, quantity: int):
@@ -381,6 +831,41 @@ def update_inventory_name(item_id: int, name: str):
 def update_inventory_image(item_id: int, image_path: str):
     get_db().update_inventory_image(item_id, image_path)
 
+
+def update_inventory_image_hash(item_id: int, image_hash: str):
+    get_db().update_inventory_image_hash(item_id, image_hash)
+
+
+def update_inventory_details(
+    item_id: int,
+    group_name: Optional[str],
+    collection_name: Optional[str],
+    collection_category: Optional[str],
+    occasion: Optional[str],
+    season: Optional[str],
+    holiday: Optional[str],
+    emotion: Optional[str],
+    color: Optional[str],
+    event_name: Optional[str],
+    event_date: Optional[str],
+    event_location: Optional[str],
+    event_notes: Optional[str],
+):
+    get_db().update_inventory_details(
+        item_id,
+        group_name,
+        collection_name,
+        collection_category,
+        occasion,
+        season,
+        holiday,
+        emotion,
+        color,
+        event_name,
+        event_date,
+        event_location,
+        event_notes,
+    )
 
 def delete_inventory_by_source(source: str):
     get_db().delete_inventory_by_source(source)
@@ -420,6 +905,31 @@ def get_inventory_items_by_ids(item_ids: Iterable[int]):
 
 def list_inventory_with_labels(include_notion: bool = False):
     return get_db().list_inventory_with_labels(include_notion)
+
+
+def list_inventory_with_labels_paginated(
+    include_notion: bool = False,
+    filters: dict[str, str | None] | None = None,
+    limit: int = 25,
+    offset: int = 0,
+):
+    return get_db().list_inventory_with_labels(
+        include_notion,
+        filters or {},
+        limit,
+        offset,
+    )
+
+
+def count_inventory_with_labels(
+    include_notion: bool = False,
+    filters: dict[str, str | None] | None = None,
+):
+    return get_db().count_inventory_with_labels(include_notion, filters or {})
+
+
+def get_inventory_filter_options(include_notion: bool = False):
+    return get_db().get_inventory_filter_options(include_notion)
 
 
 def get_inventory_items_with_labels_by_ids(item_ids: Iterable[int]):

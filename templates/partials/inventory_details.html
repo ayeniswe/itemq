@@ -1,0 +1,56 @@
+<td class="inventory-cell inventory-details-cell">
+  <div class="inventory-details">
+    {% if not (item.collection_name or item.collection_category or item.occasion or item.season or item.holiday or item.emotion or item.color or item.event_name or item.event_date or item.event_location) %}
+      <span class="inventory-muted">No details yet.</span>
+    {% endif %}
+    {% if item.collection_name %}
+      <span class="inventory-detail-label">Collection:</span>
+      <span>{{ item.collection_name }}</span>
+    {% endif %}
+    {% if item.collection_category %}
+      <span class="inventory-detail-label">Category:</span>
+      <span>{{ item.collection_category }}</span>
+    {% endif %}
+    {% if item.occasion %}
+      <span class="inventory-detail-label">Occasion:</span>
+      <span>{{ item.occasion }}</span>
+    {% endif %}
+    {% if item.season %}
+      <span class="inventory-detail-label">Season:</span>
+      <span>{{ item.season }}</span>
+    {% endif %}
+    {% if item.holiday %}
+      <span class="inventory-detail-label">Holiday:</span>
+      <span>{{ item.holiday }}</span>
+    {% endif %}
+    {% if item.emotion %}
+      <span class="inventory-detail-label">Emotion:</span>
+      <span>{{ item.emotion }}</span>
+    {% endif %}
+    {% if item.color %}
+      <span class="inventory-detail-label">Color:</span>
+      <span>{{ item.color }}</span>
+    {% endif %}
+    {% if item.event_name %}
+      <span class="inventory-detail-label">Event:</span>
+      <span>{{ item.event_name }}</span>
+    {% endif %}
+    {% if item.event_date %}
+      <span class="inventory-detail-label">Date:</span>
+      <span>{{ item.event_date }}</span>
+    {% endif %}
+    {% if item.event_location %}
+      <span class="inventory-detail-label">Location:</span>
+      <span>{{ item.event_location }}</span>
+    {% endif %}
+  </div>
+  <div class="inventory-details-actions">
+    <button type="button"
+            class="inventory-edit-link"
+            hx-get="/inventory/{{ item.id }}/details/edit?view=modal"
+            hx-target="#inventory-detail-panel"
+            hx-swap="innerHTML">
+      Edit
+    </button>
+  </div>
+</td>

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 
-from db import init_db, get_dashboard_metrics
+from db import init_db, get_dashboard_metrics, get_inventory_filter_options
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 templates = Jinja2Templates(directory="templates")
+Path("data/media").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="data/media"), name="media")
 
@@ -59,7 +60,14 @@ async def dashboard(request: Request):
 
 @app.get("/inventory", response_class=HTMLResponse)
 async def inventory(request: Request):
-    return templates.TemplateResponse("inventory.html", {"request": request})
+    filter_options = get_inventory_filter_options(include_notion=False)
+    return templates.TemplateResponse(
+        "inventory.html",
+        {
+            "request": request,
+            "filter_options": filter_options,
+        },
+    )
 
 
 @app.get("/plugins", response_class=HTMLResponse)
