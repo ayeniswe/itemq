@@ -1,7 +1,7 @@
 services:
   itemq:
-    build: .
-    image: itemq:local
+    image: localhost/itemq:latest
+    container_name: itemq
     ports:
       - "8080:8080"
     environment:
@@ -10,5 +10,19 @@ services:
     volumes:
       - itemq_data:/data
 
+  itemq-dev:
+    build: .
+    image: localhost/itemq:dev
+    container_name: itemq-dev
+    ports:
+      - "8081:8080"
+    environment:
+      ITEMQ_DB_PATH: /data/itemq.dev.db
+      ITEMQ_DATA_DIR: /data
+    volumes:
+      - itemq-data-dev:/data
+    restart: unless-stopped
+
 volumes:
   itemq_data:
+  itemq-data-dev:
