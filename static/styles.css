@@ -877,7 +877,8 @@ main {
 
 /* Adjust grid now that barcode is removed */
 .inventory-add-grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
 }
 
 /* Inventory add card (modern) */
@@ -899,10 +900,54 @@ main {
   align-items: end;
 }
 
+.inventory-add-grid .field-wide {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+/* Let Event notes fill extra space */
+.inventory-add-grid .field-notes {
+  grid-column: 1 / -1;
+  grid-row: span 2;
+}
+
+.inventory-add-grid .field-notes textarea {
+  min-height: 200px;
+}
+
 .inventory-add-grid .field:focus-within {
   border-color: #6366f1;
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 14px 30px rgba(15, 23, 42, 0.08);
   background: linear-gradient(140deg, #ffffff, #f1f5ff);
+}
+
+/* Match textarea styling to inputs */
+.inventory-add-grid textarea {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, #f9fbff, #f7f9fc);
+  color: #111827;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+  resize: none;
+  min-height: 110px;
+  box-sizing: border-box;
+}
+
+.inventory-add-grid .field-wide textarea {
+  max-width: 100%;
+}
+
+.inventory-add-grid textarea::placeholder {
+  color: #9ca3af;
+}
+
+.inventory-add-grid textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12), 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
 /* Action row */
@@ -1812,14 +1857,26 @@ main {
   background: rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
-  padding: 6rem 2rem 2rem 320px;
+  justify-content: center;
+  padding: 3rem 1rem;
+  overflow-y: auto; /* allow overlay content to scroll when tall */
   z-index: 50;
 }
 
 /* Ensure card floats above table */
 .inventory-add-card {
-  max-width: 520px;
+  width: min(1000px, 96vw);
+  max-width: 1000px;
+  max-height: 85vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  scrollbar-gutter: stable;
+  min-height: 0;
 }
 
 .inventory-detail-panel {

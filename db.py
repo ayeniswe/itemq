@@ -281,6 +281,7 @@ class SQLiteInventoryDB:
                 "emotion",
                 "color",
                 "event_name",
+                "event_date",
                 "event_location",
                 "event_notes",
             ]

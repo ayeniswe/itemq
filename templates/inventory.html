@@ -106,10 +106,10 @@
             <label>Event location</label>
             <input type="text" name="event_location" placeholder="e.g. Nashville">
           </div>
-        </div>
-        <div class="field">
-          <label>Event notes</label>
-          <textarea name="event_notes" rows="2" placeholder="Notes or reminders"></textarea>
+          <div class="field field-notes">
+            <label>Event notes</label>
+            <textarea name="event_notes" rows="4" placeholder="Notes or reminders"></textarea>
+          </div>
         </div>
       </details>
 
@@ -533,6 +533,10 @@
     const overlay = document.getElementById("inventory-add-overlay");
     const card = document.getElementById("inventory-add-card");
     const details = card?.querySelector(".inventory-details-toggle");
+    const focusGuard = () => {
+      const first = card?.querySelector("input, select, textarea, button");
+      first?.focus({ preventScroll: true });
+    };
 
     if (!toggleBtn || !overlay || !card) return;
 
@@ -551,6 +555,7 @@
         card.reset();
         if (details && details.open) details.open = false;
         overlay.classList.remove("is-hidden");
+        focusGuard();
       } else {
         closeOverlay(true);
       }
