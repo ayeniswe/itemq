@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from io import BytesIO
 
 from fastapi import APIRouter, Request
@@ -21,6 +19,7 @@ from services.barcode_rendering import (
     save_barcode_image,
 )
 from services.barcode_pdf import BarcodeSheetPDF
+from config import MEDIA_ROOT
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -200,7 +199,7 @@ async def generate_create(
 ):
     item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
-    output_dir = Path("data/media/barcodes")
+    output_dir = MEDIA_ROOT / "barcodes"
     entries = []
     for item in items:
         filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
@@ -273,8 +272,7 @@ async def generate_print(
         )
     barcodes = _build_barcode_preview(items, quantities, normalized_format)
     print_barcodes = _expand_barcodes_for_print(barcodes)
-    media_root = Path("data/media")
-    label_paths = [media_root / barcode["label_path"] for barcode in print_barcodes]
+    label_paths = [MEDIA_ROOT / barcode["label_path"] for barcode in print_barcodes]
 
     try:
         pdf_bytes = BarcodeSheetPDF().build(label_paths)

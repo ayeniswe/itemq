@@ -1,13 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-DATA_DIR="${ITEMQ_DATA_DIR:-/data}"
-MEDIA_DIR="$DATA_DIR/media"
-
-mkdir -p "$MEDIA_DIR" /app/data
-
-ln -sfn "$MEDIA_DIR" /app/data/media
-
-export ITEMQ_DB_PATH="${ITEMQ_DB_PATH:-$DATA_DIR/itemq.db}"
+export ITEMQ_DB_PATH="${ITEMQ_DB_PATH:-/data/itemq.db}"
+export ITEMQ_MEDIA_PATH="${ITEMQ_MEDIA_PATH:-/data/media}"
 
 exec "$@"

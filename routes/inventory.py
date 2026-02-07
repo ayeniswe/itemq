@@ -34,6 +34,7 @@ from services.notion_worker import (
     upsert_notion_inventory_item,
     update_notion_inventory_image,
 )
+from config import MEDIA_ROOT
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -337,9 +338,7 @@ async def update_inventory_item_image(
     file: UploadFile = File(...),
     include_notion: bool = Form(False),
 ):
-    # Ensure image directory exists
-    image_dir = Path("data/media/inventory")
-    image_dir.mkdir(parents=True, exist_ok=True)
+    image_dir = MEDIA_ROOT / "inventory"
 
     # Generate safe filename
     ext = Path(file.filename).suffix.lower()

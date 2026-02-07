@@ -6,7 +6,7 @@ services:
       - "8080:8080"
     environment:
       ITEMQ_DB_PATH: /data/itemq.db
-      ITEMQ_DATA_DIR: /data
+      ITEMQ_MEDIA_PATH: /data/media
     volumes:
       - itemq_data:/data
 
@@ -18,11 +18,11 @@ services:
       - "8081:8080"
     environment:
       ITEMQ_DB_PATH: /data/itemq.dev.db
-      ITEMQ_DATA_DIR: /data
+      ITEMQ_MEDIA_PATH: /data/media
     volumes:
-      - itemq-data-dev:/data
+      - itemq_data_dev:/data
     restart: unless-stopped
 
 volumes:
   itemq_data:
-  itemq-data-dev:
+  itemq_data_dev:

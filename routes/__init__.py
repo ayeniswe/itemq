@@ -12,6 +12,7 @@ from pathlib import Path
 import os
 
 from db import init_db, get_dashboard_metrics, get_inventory_filter_options
+from config import MEDIA_ROOT
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,9 +33,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 templates = Jinja2Templates(directory="templates")
-Path("data/media").mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/media", StaticFiles(directory="data/media"), name="media")
+app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 
 app.include_router(inventory_router)
 app.include_router(generate_router)
