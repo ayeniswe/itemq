@@ -7,3 +7,4 @@ Pillow
 qrcode
 jinja2
 python-multipart
+python-dotenv
