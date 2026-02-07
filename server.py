@@ -1,9 +1,11 @@
 # server.py
 import argparse
+import os
 from pathlib import Path
 import uvicorn
-
 from db import init_db
+from dotenv import load_dotenv
+load_dotenv()
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -27,7 +29,7 @@ def main():
         "routes:app",
         host=args.host,
         port=args.port,
-        reload=True
+        reload=(os.getenv("DEV", "").lower() in ("1", "true", "yes", "on"))
     )
 
 if __name__ == "__main__":

@@ -928,7 +928,6 @@ def count_inventory_with_labels(
 ):
     return get_db().count_inventory_with_labels(include_notion, filters or {})
 
-
 def get_inventory_filter_options(include_notion: bool = False):
     return get_db().get_inventory_filter_options(include_notion)
 

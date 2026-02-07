@@ -113,6 +113,16 @@
     updateSelectAllLabel();
   });
 
+  // Keep focus on barcode search field after list updates
+  document.body.addEventListener("htmx:afterSwap", (event) => {
+    if (event.target && event.target.id === "barcode-inventory-list") {
+      const searchInput = document.getElementById("barcode-inventory-search");
+      if (searchInput instanceof HTMLElement) {
+        searchInput.focus({ preventScroll: true });
+      }
+    }
+  });
+
   let cachedSelection = new Set();
   let cachedQuantities = new Map();
 

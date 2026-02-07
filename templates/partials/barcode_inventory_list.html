@@ -13,11 +13,12 @@
     <label>
       Search
       <input type="search"
+             id="barcode-inventory-search"
              name="search"
              value="{{ filters.search or '' }}"
              placeholder="Search by name, group, or event"
              hx-get="/generate/inventory_list"
-             hx-trigger="input delay:300ms, search"
+             hx-trigger="input search"
              hx-target="#barcode-inventory-list"
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
