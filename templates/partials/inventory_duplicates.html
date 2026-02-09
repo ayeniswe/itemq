@@ -1,66 +1,111 @@
 <div class="inventory-duplicates">
-  <h3>Duplicate checks</h3>
+  <h3>Duplicate insights</h3>
   <p class="inventory-muted">
-    Exact matches share the same image hash. Close matches are visually similar.
+    Review possible duplicates when needed without crowding your inventory workflow.
   </p>
 
-  <div class="inventory-duplicate-section">
-    <h4>Exact image duplicates</h4>
-    {% if exact_groups %}
-      {% for group in exact_groups %}
-        <div class="inventory-duplicate-group" data-duplicate-group>
-          {% for item in group %}
+  <details class="inventory-duplicate-panel" {% if exact_groups or similar_pairs %}open{% endif %}>
+    <summary>
+      <span>Exact image duplicates</span>
+      <span class="inventory-muted">{{ exact_groups|length }} groups</span>
+    </summary>
+    <div class="inventory-duplicate-list">
+      {% if exact_groups %}
+        {% for group in exact_groups %}
+          <div class="inventory-duplicate-group" data-duplicate-group>
+            <div class="inventory-duplicate-cards">
+              {% for item in group %}
+                <div class="inventory-duplicate-card">
+                  {% if item.image_path %}
+                    <img src="/media/{{ item.image_path }}" alt="{{ item.name }}">
+                  {% endif %}
+                  <div>
+                    <strong>{{ item.name }}</strong>
+                    <span class="inventory-muted">{{ item.barcode }}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            <button class="btn-secondary inventory-duplicate-dismiss" type="button">
+              Dismiss group
+            </button>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="inventory-muted">No exact duplicate images found.</p>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="inventory-duplicate-panel" {% if same_name_groups %}open{% endif %}>
+    <summary>
+      <span>Same name items</span>
+      <span class="inventory-muted">{{ same_name_groups|length }} groups</span>
+    </summary>
+    <div class="inventory-duplicate-list">
+      {% if same_name_groups %}
+        {% for group in same_name_groups %}
+          <div class="inventory-duplicate-group" data-duplicate-group>
+            <div class="inventory-duplicate-cards">
+              {% for item in group %}
+                <div class="inventory-duplicate-card">
+                  {% if item.image_path %}
+                    <img src="/media/{{ item.image_path }}" alt="{{ item.name }}">
+                  {% endif %}
+                  <div>
+                    <strong>{{ item.name }}</strong>
+                    <span class="inventory-muted">{{ item.barcode }}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+            <button class="btn-secondary inventory-duplicate-dismiss" type="button">
+              Dismiss group
+            </button>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="inventory-muted">No same-name items found.</p>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="inventory-duplicate-panel">
+    <summary>
+      <span>Close image matches</span>
+      <span class="inventory-muted">{{ similar_pairs|length }} pairs</span>
+    </summary>
+    <div class="inventory-duplicate-list">
+      {% if similar_pairs %}
+        {% for pair in similar_pairs %}
+          <div class="inventory-duplicate-group inventory-duplicate-pair" data-duplicate-group>
             <div class="inventory-duplicate-card">
-              {% if item.image_path %}
-                <img src="/media/{{ item.image_path }}" alt="{{ item.name }}">
+              {% if pair.left.image_path %}
+                <img src="/media/{{ pair.left.image_path }}" alt="{{ pair.left.name }}">
               {% endif %}
               <div>
-                <strong>{{ item.name }}</strong>
-                <span class="inventory-muted">{{ item.barcode }}</span>
+                <strong>{{ pair.left.name }}</strong>
+                <span class="inventory-muted">{{ pair.left.barcode }}</span>
               </div>
             </div>
-          {% endfor %}
-          <button class="btn-secondary inventory-duplicate-dismiss" type="button">
-            Proceed (intentional duplicate)
-          </button>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p class="inventory-muted">No exact duplicate images found.</p>
-    {% endif %}
-  </div>
-
-  <div class="inventory-duplicate-section">
-    <h4>Close image matches</h4>
-    {% if similar_pairs %}
-      {% for pair in similar_pairs %}
-        <div class="inventory-duplicate-group" data-duplicate-group>
-          <div class="inventory-duplicate-card">
-            {% if pair.left.image_path %}
-              <img src="/media/{{ pair.left.image_path }}" alt="{{ pair.left.name }}">
-            {% endif %}
-            <div>
-              <strong>{{ pair.left.name }}</strong>
-              <span class="inventory-muted">{{ pair.left.barcode }}</span>
+            <span class="inventory-duplicate-distance">Similarity {{ 6 - pair.distance }} / 6</span>
+            <div class="inventory-duplicate-card">
+              {% if pair.right.image_path %}
+                <img src="/media/{{ pair.right.image_path }}" alt="{{ pair.right.name }}">
+              {% endif %}
+              <div>
+                <strong>{{ pair.right.name }}</strong>
+                <span class="inventory-muted">{{ pair.right.barcode }}</span>
+              </div>
             </div>
+            <button class="btn-secondary inventory-duplicate-dismiss" type="button">
+              Dismiss pair
+            </button>
           </div>
-          <span class="inventory-duplicate-distance">Similarity: {{ 6 - pair.distance }} / 6</span>
-          <div class="inventory-duplicate-card">
-            {% if pair.right.image_path %}
-              <img src="/media/{{ pair.right.image_path }}" alt="{{ pair.right.name }}">
-            {% endif %}
-            <div>
-              <strong>{{ pair.right.name }}</strong>
-              <span class="inventory-muted">{{ pair.right.barcode }}</span>
-            </div>
-          </div>
-          <button class="btn-secondary inventory-duplicate-dismiss" type="button">
-            Proceed (close match)
-          </button>
-        </div>
-      {% endfor %}
-    {% else %}
-      <p class="inventory-muted">No close duplicate images found.</p>
-    {% endif %}
-  </div>
+        {% endfor %}
+      {% else %}
+        <p class="inventory-muted">No close duplicate images found.</p>
+      {% endif %}
+    </div>
+  </details>
 </div>

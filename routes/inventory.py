@@ -43,6 +43,63 @@ PAGE_SIZE = 25
 _LAST_DELETED: dict | None = None
 
 
+def _build_filter_payload(
+    search: str | None = None,
+    search_case: str | None = None,
+    group_name: str | None = None,
+    collection_name: str | None = None,
+    collection_category: str | None = None,
+    occasion: str | None = None,
+    season: str | None = None,
+    holiday: str | None = None,
+    emotion: str | None = None,
+    color: str | None = None,
+    event_name: str | None = None,
+) -> dict[str, str | None]:
+    return {
+        "search": search,
+        "search_case": search_case or "insensitive",
+        "group_name": group_name,
+        "collection_name": collection_name,
+        "collection_category": collection_category,
+        "occasion": occasion,
+        "season": season,
+        "holiday": holiday,
+        "emotion": emotion,
+        "color": color,
+        "event_name": event_name,
+    }
+
+
+def _render_inventory_table(
+    request: Request,
+    include_notion: bool,
+    filters: dict[str, str | None],
+    page: int = 1,
+):
+    total = count_inventory(include_notion=include_notion, filters=filters)
+    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
+    page = max(min(page, total_pages), 1)
+    items = list_inventory(
+        include_notion=include_notion,
+        filters=filters,
+        limit=PAGE_SIZE,
+        offset=(page - 1) * PAGE_SIZE,
+    )
+    return templates.TemplateResponse(
+        "partials/inventory_table.html",
+        {
+            "request": request,
+            "items": items,
+            "page": page,
+            "total_pages": total_pages,
+            "total_items": total,
+            "page_size": PAGE_SIZE,
+            "filters": filters,
+        },
+    )
+
+
 class InventoryAdjustmentPayload(BaseModel):
     code: str = Field(..., min_length=1)
     direction: Literal["IN", "OUT"]
@@ -66,6 +123,7 @@ async def inventory_table(
     include_notion: bool = False,
     page: int = 1,
     search: str | None = None,
+    search_case: str | None = "insensitive",
     group_name: str | None = None,
     collection_name: str | None = None,
     collection_category: str | None = None,
@@ -77,38 +135,20 @@ async def inventory_table(
     event_name: str | None = None,
 ):
     page = max(page, 1)
-    filters = {
-        "search": search,
-        "group_name": group_name,
-        "collection_name": collection_name,
-        "collection_category": collection_category,
-        "occasion": occasion,
-        "season": season,
-        "holiday": holiday,
-        "emotion": emotion,
-        "color": color,
-        "event_name": event_name,
-    }
-    items = list_inventory(
-        include_notion=include_notion,
-        filters=filters,
-        limit=PAGE_SIZE,
-        offset=(page - 1) * PAGE_SIZE,
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
     )
-    total = count_inventory(include_notion=include_notion, filters=filters)
-    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-    return templates.TemplateResponse(
-        "partials/inventory_table.html",
-        {
-            "request": request,
-            "items": items,
-            "page": page,
-            "total_pages": total_pages,
-            "total_items": total,
-            "page_size": PAGE_SIZE,
-            "filters": filters,
-        },
-    )
+    return _render_inventory_table(request, include_notion, filters, page)
 
 
 @router.get("/inventory/summary", response_class=HTMLResponse)
@@ -143,6 +183,7 @@ async def inventory_duplicates(
         offset=0,
     )
     items_with_hash = [item for item in items if item["image_hash"]]
+    items_with_name = [item for item in items if (item["name"] or "").strip()]
 
     exact_duplicates = {}
     for item in items_with_hash:
@@ -165,12 +206,23 @@ async def inventory_duplicates(
                     }
                 )
 
+    # Same-name groups (case-insensitive)
+    name_duplicates: dict[str, list] = {}
+    for item in items_with_name:
+        key = (item["name"] or "").strip().lower()
+        name_duplicates.setdefault(key, []).append(item)
+
+    same_name_groups = [
+        group for group in name_duplicates.values() if len(group) > 1
+    ]
+
     return templates.TemplateResponse(
         "partials/inventory_duplicates.html",
         {
             "request": request,
             "exact_groups": exact_groups,
             "similar_pairs": similar_pairs,
+            "same_name_groups": same_name_groups,
         },
     )
 
@@ -186,33 +238,37 @@ async def delete_inventory_item_row(
     request: Request,
     item_id: int,
     include_notion: bool = Form(False),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
 ):
     global _LAST_DELETED
     item_row = get_inventory_item(item_id)
     if item_row is not None:
         _LAST_DELETED = dict(item_row)
     delete_inventory_item(item_id)
-    filters = {}
-    total = count_inventory(include_notion=include_notion, filters=filters)
-    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-    items = list_inventory(
-        include_notion=include_notion,
-        filters=filters,
-        limit=PAGE_SIZE,
-        offset=0,
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
     )
-    response = templates.TemplateResponse(
-        "partials/inventory_table.html",
-        {
-            "request": request,
-            "items": items,
-            "page": 1,
-            "total_pages": total_pages,
-            "total_items": total,
-            "page_size": PAGE_SIZE,
-            "filters": filters,
-        },
-    )
+    response = _render_inventory_table(request, include_notion, filters, page=1)
     if _LAST_DELETED:
         response.headers["HX-Trigger"] = "inventory:undoAvailable"
     return response
@@ -225,6 +281,18 @@ async def delete_inventory_item_row(
 async def create_inventory_item(
     request: Request,
     include_notion: bool = Form(False),
+    page: int = Form(1),
+    filter_search: str | None = Form(None),
+    filter_search_case: str | None = Form("insensitive"),
+    filter_group_name: str | None = Form(None),
+    filter_collection_name: str | None = Form(None),
+    filter_collection_category: str | None = Form(None),
+    filter_occasion: str | None = Form(None),
+    filter_season: str | None = Form(None),
+    filter_holiday: str | None = Form(None),
+    filter_emotion: str | None = Form(None),
+    filter_color: str | None = Form(None),
+    filter_event_name: str | None = Form(None),
     name: str = Form(...),
     quantity: int = Form(0),
     group_name: str | None = Form(None),
@@ -262,28 +330,20 @@ async def create_inventory_item(
 
     _sync_local_item_to_notion(request, item_id)
 
-    # Re-render table after insert
-    filters = {}
-    total = count_inventory(include_notion=include_notion, filters=filters)
-    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-    items = list_inventory(
-        include_notion=include_notion,
-        filters=filters,
-        limit=PAGE_SIZE,
-        offset=0,
+    filters = _build_filter_payload(
+        search=filter_search,
+        search_case=filter_search_case,
+        group_name=filter_group_name,
+        collection_name=filter_collection_name,
+        collection_category=filter_collection_category,
+        occasion=filter_occasion,
+        season=filter_season,
+        holiday=filter_holiday,
+        emotion=filter_emotion,
+        color=filter_color,
+        event_name=filter_event_name,
     )
-    return templates.TemplateResponse(
-        "partials/inventory_table.html",
-        {
-            "request": request,
-            "items": items,
-            "page": 1,
-            "total_pages": total_pages,
-            "total_items": total,
-            "page_size": PAGE_SIZE,
-            "filters": filters,
-        },
-    )
+    return _render_inventory_table(request, include_notion, filters, page=page)
 
 
 # -----------------------------
@@ -298,13 +358,16 @@ async def update_inventory_item_name(
     update_inventory_name(item_id, name)
     _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         "partials/inventory_name.html",
         {
             "request": request,
             "item": item,
         },
     )
+    # Refresh duplicate insights when a name change could create/remove same-name duplicates
+    response.headers["HX-Trigger"] = "inventory:refreshDuplicates"
+    return response
 
 
 # -----------------------------
@@ -337,6 +400,18 @@ async def update_inventory_item_image(
     item_id: int,
     file: UploadFile = File(...),
     include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
 ):
     image_dir = MEDIA_ROOT / "inventory"
 
@@ -361,27 +436,20 @@ async def update_inventory_item_image(
 
     _sync_inventory_image_to_notion(request, item_id, f"inventory/{filename}")
 
-    filters = {}
-    total = count_inventory(include_notion=include_notion, filters=filters)
-    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-    items = list_inventory(
-        include_notion=include_notion,
-        filters=filters,
-        limit=PAGE_SIZE,
-        offset=0,
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
     )
-    return templates.TemplateResponse(
-        "partials/inventory_table.html",
-        {
-            "request": request,
-            "items": items,
-            "page": 1,
-            "total_pages": total_pages,
-            "total_items": total,
-            "page_size": PAGE_SIZE,
-            "filters": filters,
-        },
-    )
+    return _render_inventory_table(request, include_notion, filters, page=page)
 
 
 @router.post("/inventory/{item_id}/details", response_class=HTMLResponse)
@@ -393,6 +461,7 @@ async def update_inventory_item_details(
     refresh_row: str | None = Form(None),
     page: int = Form(1),
     search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
     group_name: str | None = Form(None),
     collection_name: str | None = Form(None),
     collection_category: str | None = Form(None),
@@ -431,39 +500,20 @@ async def update_inventory_item_details(
         response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshTable"
         return response
     if refresh_table:
-        filters = {
-            "search": search,
-            "group_name": group_name,
-            "collection_name": collection_name,
-            "collection_category": collection_category,
-            "occasion": occasion,
-            "season": season,
-            "holiday": holiday,
-            "emotion": emotion,
-            "color": color,
-            "event_name": event_name,
-        }
-        total = count_inventory(include_notion=include_notion, filters=filters)
-        total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-        page = max(min(page, total_pages), 1)
-        items = list_inventory(
-            include_notion=include_notion,
-            filters=filters,
-            limit=PAGE_SIZE,
-            offset=(page - 1) * PAGE_SIZE,
+        filters = _build_filter_payload(
+            search=search,
+            search_case=search_case,
+            group_name=group_name,
+            collection_name=collection_name,
+            collection_category=collection_category,
+            occasion=occasion,
+            season=season,
+            holiday=holiday,
+            emotion=emotion,
+            color=color,
+            event_name=event_name,
         )
-        response = templates.TemplateResponse(
-            "partials/inventory_table.html",
-            {
-                "request": request,
-                "items": items,
-                "page": page,
-                "total_pages": total_pages,
-                "total_items": total,
-                "page_size": PAGE_SIZE,
-                "filters": filters,
-            },
-        )
+        response = _render_inventory_table(request, include_notion, filters, page=page)
         response.headers["HX-Trigger"] = "inventory:filtersUpdated"
         return response
     response = templates.TemplateResponse(
@@ -502,6 +552,18 @@ async def view_inventory_item_details(
 async def undo_inventory_delete(
     request: Request,
     include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
 ):
     global _LAST_DELETED
     if _LAST_DELETED:
@@ -528,27 +590,20 @@ async def undo_inventory_delete(
         )
         _LAST_DELETED = None
 
-    filters = {}
-    total = count_inventory(include_notion=include_notion, filters=filters)
-    total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
-    items = list_inventory(
-        include_notion=include_notion,
-        filters=filters,
-        limit=PAGE_SIZE,
-        offset=0,
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
     )
-    return templates.TemplateResponse(
-        "partials/inventory_table.html",
-        {
-            "request": request,
-            "items": items,
-            "page": 1,
-            "total_pages": total_pages,
-            "total_items": total,
-            "page_size": PAGE_SIZE,
-            "filters": filters,
-        },
-    )
+    return _render_inventory_table(request, include_notion, filters, page=page)
 
 
 @router.get("/inventory/{item_id}/name/edit", response_class=HTMLResponse)

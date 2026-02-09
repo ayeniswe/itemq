@@ -266,9 +266,11 @@ class SQLiteInventoryDB:
         if not include_notion:
             conditions.append(f"{table_alias}.source = 'local'")
 
-        search = (filters.get("search") or "").strip().lower()
+        search = (filters.get("search") or "").strip()
+        search_case = (filters.get("search_case") or "insensitive").strip().lower()
+        case_sensitive = search_case == "sensitive"
         if search:
-            like = f"%{search}%"
+            search_tokens = [token for token in search.split() if token]
             search_columns = [
                 "name",
                 "barcode",
@@ -285,13 +287,23 @@ class SQLiteInventoryDB:
                 "event_location",
                 "event_notes",
             ]
-            search_conditions = []
-            for column in search_columns:
-                search_conditions.append(
-                    f"LOWER(COALESCE({table_alias}.{column}, '')) LIKE ?"
-                )
-                params.append(like)
-            conditions.append("(" + " OR ".join(search_conditions) + ")")
+            token_groups = []
+            for token in search_tokens:
+                needle = token if case_sensitive else token.lower()
+                token_conditions = []
+                for column in search_columns:
+                    if case_sensitive:
+                        token_conditions.append(
+                            f"INSTR(COALESCE({table_alias}.{column}, ''), ?) > 0"
+                        )
+                    else:
+                        token_conditions.append(
+                            f"INSTR(LOWER(COALESCE({table_alias}.{column}, '')), ?) > 0"
+                        )
+                    params.append(needle)
+                token_groups.append("(" + " OR ".join(token_conditions) + ")")
+            if token_groups:
+                conditions.append("(" + " AND ".join(token_groups) + ")")
 
         filter_columns = {
             "group_name": "group_name",
@@ -678,6 +690,9 @@ class SQLiteInventoryDB:
         inventory_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory"
         ).fetchone()["count"]
+        total_quantity = self.conn.execute(
+            "SELECT COALESCE(SUM(quantity), 0) AS total_quantity FROM inventory"
+        ).fetchone()["total_quantity"]
         low_stock_count = self.conn.execute(
             "SELECT COUNT(*) AS count FROM inventory WHERE quantity <= ?",
             (low_stock_threshold,),
@@ -685,6 +700,7 @@ class SQLiteInventoryDB:
 
         return {
             "total_items": int(inventory_count or 0),
+            "total_quantity": int(total_quantity or 0),
             "low_stock": int(low_stock_count or 0),
         }
 

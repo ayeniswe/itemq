@@ -13,24 +13,30 @@
   <div class="app">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="logo-dot"></div>
+        <img class="logo-img" src="/static/logo-sunflower.svg" alt="ItemQ logo">
         <h2>ItemQ</h2>
+        <button id="sidebar-toggle"
+                class="sidebar-toggle"
+                type="button"
+                data-sidebar-toggle
+                aria-label="Collapse sidebar"
+                aria-pressed="false">⟨</button>
       </div>
 
       <nav class="sidebar-nav">
-        <a hx-get="/dashboard" hx-target="#content" hx-swap="innerHtml">
+        <a hx-get="/dashboard" hx-target="#content" hx-swap="innerHtml" title="Dashboard">
           <span class="nav-icon icon-dashboard"></span>
           <span class="nav-label">Dashboard</span>
         </a>
-        <a hx-get="/generate" hx-target="#content" hx-swap="innerHtml">
+        <a hx-get="/generate" hx-target="#content" hx-swap="innerHtml" title="Generate">
           <span class="nav-icon icon-generate"></span>
           <span class="nav-label">Generate</span>
         </a>
-        <a hx-get="/inventory" hx-target="#content" hx-swap="innerHtml">
+        <a hx-get="/inventory" hx-target="#content" hx-swap="innerHtml" title="Inventory">
           <span class="nav-icon icon-inventory"></span>
           <span class="nav-label">Inventory</span>
         </a>
-        <a hx-get="/plugins" hx-target="#content" hx-swap="innerHtml">
+        <a hx-get="/plugins" hx-target="#content" hx-swap="innerHtml" title="Plugins">
           <span class="nav-icon icon-plugins"></span>
           <span class="nav-label">Plugins</span>
         </a>

@@ -26,20 +26,14 @@
     </button>
   </div>
 
-  <div id="inventory-summary"
-       hx-get="/inventory/summary"
-       hx-trigger="load"
-       hx-target="#inventory-summary"
-       hx-swap="innerHTML"
-       hx-include="#include-notion-toggle"></div>
-
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
     <form id="inventory-add-card"
           class="inventory-add-form inventory-add-card"
           hx-post="/inventory"
           hx-target="#inventory-table-wrapper"
           hx-swap="innerHTML"
-          hx-include="[name='include_notion']">
+          hx-include="[name='include_notion'], #inventory-filters, #inventory-page"
+          hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || ""}'>
 
       <div class="inventory-add-grid">
         <div class="field">
@@ -126,9 +120,16 @@
   </div>
 </div>
 
-<div class="inventory-card">
+<div id="inventory-table-card" class="inventory-card">
+  <div class="inventory-table-controls">
+    <button id="inventory-table-size-toggle"
+            type="button"
+            class="inventory-table-toggle"
+            aria-label="Maximize table">+</button>
+  </div>
   <div class="inventory-table-wrapper">
     <form id="inventory-filters" class="inventory-search-row">
+      <input id="inventory-page" type="hidden" name="page" value="1">
       <div class="inventory-search" role="search">
         <span class="inventory-search-icon" aria-hidden="true">🔎</span>
         <input id="inventory-search"
@@ -142,13 +143,19 @@
                hx-swap="innerHTML"
                hx-include="#inventory-filters, #include-notion-toggle"
                aria-label="Search inventory items">
-        <button type="button"
-                id="inventory-search-clear"
-                class="inventory-search-clear"
-                aria-label="Clear search">
-          ×
-        </button>
       </div>
+      <label class="inventory-search-case">
+        Search mode
+        <select name="search_case"
+                hx-get="/inventory/table"
+                hx-trigger="change"
+                hx-target="#inventory-table-wrapper"
+                hx-swap="innerHTML"
+                hx-include="#inventory-filters, #include-notion-toggle">
+          <option value="insensitive" {% if request.query_params.get("search_case", "insensitive") != "sensitive" %}selected{% endif %}>Case-insensitive</option>
+          <option value="sensitive" {% if request.query_params.get("search_case") == "sensitive" %}selected{% endif %}>Case-sensitive</option>
+        </select>
+      </label>
   <div class="inventory-filter-row">
     <label>
       Group
@@ -277,7 +284,7 @@
           </select>
         </label>
       </div>
-      <span id="inventory-search-count" class="inventory-muted">Showing all items</span>
+      <span id="inventory-search-count" class="inventory-muted">Showing filtered inventory</span>
     </form>
     <div id="inventory-search-empty" class="inventory-empty" hidden>
       No matching items. Try a different search.
@@ -408,6 +415,8 @@
         values: { include_notion: toggle.checked },
       });
     };
+    // Expose for other scripts to refresh after data mutations
+    window.refreshInventoryDuplicates = requestDuplicates;
 
     toggle.addEventListener("change", () => {
       localStorage.setItem(STORAGE_KEY, String(toggle.checked));
@@ -426,73 +435,51 @@
 <script>
   (function () {
     const searchInput = document.getElementById("inventory-search");
-    const clearButton = document.getElementById("inventory-search-clear");
-    const getTableBody = () => document.getElementById("inventory-table");
-    const emptyState = document.getElementById("inventory-search-empty");
     const countLabel = document.getElementById("inventory-search-count");
     const undoBanner = document.getElementById("inventory-undo");
     const filtersForm = document.getElementById("inventory-filters");
     const includeNotionToggle = document.getElementById("include-notion-toggle");
+    const pageInput = document.getElementById("inventory-page");
 
-    if (!searchInput || !clearButton || !countLabel) return;
+    if (!searchInput || !countLabel) return;
 
-    let rows = [];
-
-    const syncRows = () => {
-      const tableBody = getTableBody();
-      if (!tableBody) {
-        rows = [];
-        return;
-      }
-      rows = Array.from(tableBody.querySelectorAll(".inventory-row"));
-    };
-
-    const updateCount = (visibleCount, totalCount) => {
-      if (!countLabel) return;
+    const updateCount = () => {
+      const rows = Array.from(document.querySelectorAll("#inventory-table .inventory-row"));
       if (!searchInput.value.trim()) {
-        countLabel.textContent = "Showing all items";
-        return;
+        countLabel.textContent = `Showing ${rows.length} items on this page`;
+      } else {
+        countLabel.textContent = `Showing ${rows.length} matching items on this page`;
       }
-      countLabel.textContent = `Showing ${visibleCount} of ${totalCount} items`;
-    };
-
-    const applyFilter = () => {
-      const query = searchInput.value.trim().toLowerCase();
-      let visibleCount = 0;
-
-      rows.forEach((row) => {
-        const text = (row.dataset.search || "").toLowerCase();
-        const matches = !query || text.includes(query);
-        row.hidden = !matches;
-        if (matches) visibleCount += 1;
-      });
-
-      const totalCount = rows.length;
-      updateCount(visibleCount, totalCount);
-
+      const emptyState = document.getElementById("inventory-search-empty");
       if (emptyState) {
-        emptyState.hidden = !query || visibleCount > 0;
+        emptyState.hidden = rows.length > 0;
       }
-
-      clearButton.hidden = !searchInput.value;
     };
 
-    searchInput.addEventListener("input", applyFilter);
-    searchInput.addEventListener("search", applyFilter);
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+      }
+    });
 
-    clearButton.addEventListener("click", () => {
-      searchInput.value = "";
-      searchInput.focus();
-      applyFilter();
-      searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.addEventListener("input", () => {
+      if (pageInput) pageInput.value = "1";
     });
 
     document.body.addEventListener("htmx:afterSwap", (event) => {
       if (event.target && event.target.id === "inventory-table-wrapper") {
-        syncRows();
-        applyFilter();
+        const tablePageInput = event.target.querySelector("input[name='page']");
+        if (pageInput && tablePageInput) {
+          pageInput.value = tablePageInput.value;
+        }
+        updateCount();
         window.refreshInventoryFilters?.();
+        window.refreshInventoryDuplicates?.();
       }
+    });
+
+    document.body.addEventListener("inventory:refreshDuplicates", () => {
+      window.refreshInventoryDuplicates?.();
     });
 
     document.body.addEventListener("inventory:refreshTable", () => {
@@ -521,8 +508,7 @@
       }
     });
 
-    syncRows();
-    applyFilter();
+    updateCount();
   })();
 </script>
 
@@ -640,6 +626,26 @@
         group.remove();
       }
     });
+  })();
+</script>
+
+<script>
+  (function () {
+    const card = document.getElementById("inventory-table-card");
+    const btn = document.getElementById("inventory-table-size-toggle");
+    if (!card || !btn) return;
+    const setState = () => {
+      const maximized = card.classList.contains("inventory-card-maximized");
+      btn.textContent = maximized ? "−" : "+";
+      btn.setAttribute("aria-label", maximized ? "Minimize table" : "Maximize table");
+    };
+
+    btn.addEventListener("click", () => {
+      card.classList.toggle("inventory-card-maximized");
+      setState();
+    });
+
+    setState();
   })();
 </script>
 

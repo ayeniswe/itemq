@@ -202,13 +202,21 @@ async def generate_create(
     output_dir = MEDIA_ROOT / "barcodes"
     entries = []
     for item in items:
-        filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+        existing_format = (item["label_format"] or "").lower()
+        existing_path = item["label_path"]
+
+        if existing_path and existing_format == normalized_format:
+            label_path = existing_path  # reuse existing label image
+        else:
+            filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+            label_path = f"barcodes/{filename}"
+
         entries.append(
             (
                 item["id"],
                 item["barcode"],
                 normalized_format,
-                f"barcodes/{filename}",
+                label_path,
                 quantities.get(item["id"], 1),
             )
         )
