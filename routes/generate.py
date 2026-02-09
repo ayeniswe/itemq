@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from io import BytesIO
 
 from fastapi import APIRouter, Request
@@ -9,7 +7,9 @@ from fastapi.templating import Jinja2Templates
 from db import (
     get_inventory_items_with_labels_by_ids,
     get_plugin,
-    list_inventory_with_labels,
+    list_inventory_with_labels_paginated,
+    count_inventory_with_labels,
+    get_inventory_filter_options,
     upsert_barcode_labels,
 )
 from model import Plugin
@@ -19,6 +19,7 @@ from services.barcode_rendering import (
     save_barcode_image,
 )
 from services.barcode_pdf import BarcodeSheetPDF
+from config import MEDIA_ROOT
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -32,7 +33,15 @@ def _notion_enabled() -> bool:
 @router.get("/generate", response_class=HTMLResponse)
 async def generate(request: Request):
     include_notion = _notion_enabled()
-    items = list_inventory_with_labels(include_notion=include_notion)
+    filters = {}
+    items = list_inventory_with_labels_paginated(
+        include_notion=include_notion,
+        filters=filters,
+        limit=25,
+        offset=0,
+    )
+    total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
+    filter_options = get_inventory_filter_options(include_notion=include_notion)
     return templates.TemplateResponse(
         "generate.html",
         {
@@ -42,6 +51,11 @@ async def generate(request: Request):
             "selected_format": normalize_format(None),
             "notion_enabled": include_notion,
             "barcodes": [],
+            "filters": filters,
+            "filter_options": filter_options,
+            "page": 1,
+            "total_pages": max((total + 24) // 25, 1),
+            "total_items": total,
         },
     )
 
@@ -59,7 +73,7 @@ def _build_barcode_preview(items, quantities: dict[int, int], fallback_format: s
     barcodes = []
     for item in items:
         label_format = item["label_format"] or fallback_format
-        quantity = quantities.get(item["id"], item["label_quantity"] or 1)
+        quantity = quantities.get(item["id"], item["label_quantity"] or 0)
         barcodes.append(
             {
                 "id": item["id"],
@@ -69,6 +83,16 @@ def _build_barcode_preview(items, quantities: dict[int, int], fallback_format: s
                 "format": label_format,
                 "label_path": item["label_path"],
                 "quantity": quantity,
+                "image_path": item["image_path"],
+                "group_name": item["group_name"],
+                "collection_name": item["collection_name"],
+                "collection_category": item["collection_category"],
+                "occasion": item["occasion"],
+                "season": item["season"],
+                "holiday": item["holiday"],
+                "emotion": item["emotion"],
+                "color": item["color"],
+                "event_name": item["event_name"],
             }
         )
     return barcodes
@@ -79,12 +103,12 @@ async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int,
     item_ids = [int(value) for value in form.getlist("item_ids")]
     quantities = {}
     for item_id in item_ids:
-        raw_value = form.get(f"quantity_{item_id}", "1")
+        raw_value = form.get(f"quantity_{item_id}", "0")
         try:
             parsed = int(raw_value)
         except (TypeError, ValueError):
-            parsed = 1
-        quantities[item_id] = max(parsed, 1)
+            parsed = 0
+        quantities[item_id] = max(parsed, 0)
     normalized_format = normalize_format(form.get("format", "code128"))
     return item_ids, quantities, normalized_format
 
@@ -93,9 +117,62 @@ def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
     expanded = []
     for barcode in sorted(barcodes, key=lambda entry: entry.get("barcode", "").casefold()):
         count = barcode.get("quantity", 1)
-        for _ in range(max(count, 1)):
+        if count <= 0:
+            continue
+        for _ in range(count):
             expanded.append({**barcode, "quantity": 1})
     return expanded
+
+
+@router.get("/generate/inventory_list", response_class=HTMLResponse)
+async def generate_inventory_list(
+    request: Request,
+    search: str | None = None,
+    group_name: str | None = None,
+    collection_name: str | None = None,
+    collection_category: str | None = None,
+    occasion: str | None = None,
+    season: str | None = None,
+    holiday: str | None = None,
+    emotion: str | None = None,
+    color: str | None = None,
+    event_name: str | None = None,
+    page: int = 1,
+):
+    include_notion = _notion_enabled()
+    page = max(page, 1)
+    filters = {
+        "search": search,
+        "group_name": group_name,
+        "collection_name": collection_name,
+        "collection_category": collection_category,
+        "occasion": occasion,
+        "season": season,
+        "holiday": holiday,
+        "emotion": emotion,
+        "color": color,
+        "event_name": event_name,
+    }
+    items = list_inventory_with_labels_paginated(
+        include_notion=include_notion,
+        filters=filters,
+        limit=25,
+        offset=(page - 1) * 25,
+    )
+    total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
+    filter_options = get_inventory_filter_options(include_notion=include_notion)
+    return templates.TemplateResponse(
+        "partials/barcode_inventory_list.html",
+        {
+            "request": request,
+            "items": items,
+            "filters": filters,
+            "filter_options": filter_options,
+            "page": page,
+            "total_pages": max((total + 24) // 25, 1),
+            "total_items": total,
+        },
+    )
 
 
 @router.post("/generate/preview", response_class=HTMLResponse)
@@ -122,16 +199,24 @@ async def generate_create(
 ):
     item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
-    output_dir = Path("data/media/barcodes")
+    output_dir = MEDIA_ROOT / "barcodes"
     entries = []
     for item in items:
-        filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+        existing_format = (item["label_format"] or "").lower()
+        existing_path = item["label_path"]
+
+        if existing_path and existing_format == normalized_format:
+            label_path = existing_path  # reuse existing label image
+        else:
+            filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+            label_path = f"barcodes/{filename}"
+
         entries.append(
             (
                 item["id"],
                 item["barcode"],
                 normalized_format,
-                f"barcodes/{filename}",
+                label_path,
                 quantities.get(item["id"], 1),
             )
         )
@@ -140,7 +225,15 @@ async def generate_create(
     refreshed_items = get_inventory_items_with_labels_by_ids(item_ids)
     barcodes = _build_barcode_preview(refreshed_items, quantities, normalized_format)
     include_notion = _notion_enabled()
-    inventory_items = list_inventory_with_labels(include_notion=include_notion)
+    filters = {}
+    inventory_items = list_inventory_with_labels_paginated(
+        include_notion=include_notion,
+        filters=filters,
+        limit=25,
+        offset=0,
+    )
+    total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
+    filter_options = get_inventory_filter_options(include_notion=include_notion)
     banner = None
     if item_ids:
         banner = {
@@ -160,6 +253,11 @@ async def generate_create(
             "selection_count": sum(quantities.values()),
             "items": inventory_items,
             "banner": banner,
+            "filters": filters,
+            "filter_options": filter_options,
+            "page": 1,
+            "total_pages": max((total + 24) // 25, 1),
+            "total_items": total,
         },
     )
 
@@ -182,8 +280,7 @@ async def generate_print(
         )
     barcodes = _build_barcode_preview(items, quantities, normalized_format)
     print_barcodes = _expand_barcodes_for_print(barcodes)
-    media_root = Path("data/media")
-    label_paths = [media_root / barcode["label_path"] for barcode in print_barcodes]
+    label_paths = [MEDIA_ROOT / barcode["label_path"] for barcode in print_barcodes]
 
     try:
         pdf_bytes = BarcodeSheetPDF().build(label_paths)

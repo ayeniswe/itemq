@@ -1,0 +1,62 @@
+<form id="inventory-bulk-form">
+  <input type="hidden" name="page" value="{{ page }}">
+  <table class="inventory-table">
+  <thead>
+    <tr class="inventory-pagination-row">
+      <th colspan="9">
+        <div class="inventory-pagination">
+          <span class="inventory-muted">
+            Page {{ page }} of {{ total_pages }} · {{ total_items }} items
+          </span>
+          <div class="inventory-pagination-actions">
+            <button type="button"
+                    class="btn-secondary"
+                    {% if page <= 1 %}disabled{% endif %}
+                    hx-get="/inventory/table"
+                    hx-vals='{"page": "{{ page - 1 }}"}'
+                    hx-target="#inventory-table-wrapper"
+                    hx-swap="innerHTML"
+                    hx-include="#inventory-filters, #include-notion-toggle">
+              Previous
+            </button>
+            <button type="button"
+                    class="btn-secondary"
+                    {% if page >= total_pages %}disabled{% endif %}
+                    hx-get="/inventory/table"
+                    hx-vals='{"page": "{{ page + 1 }}"}'
+                    hx-target="#inventory-table-wrapper"
+                    hx-swap="innerHTML"
+                    hx-include="#inventory-filters, #include-notion-toggle">
+              Next
+            </button>
+          </div>
+        </div>
+      </th>
+    </tr>
+    <tr>
+      <th class="inventory-select-col">
+        <input type="checkbox" id="inventory-select-all" aria-label="Select all rows">
+      </th>
+      <th>Image</th>
+      <th>Barcode</th>
+      <th>Name</th>
+      <th>Group</th>
+      <th>Details</th>
+      <th>Quantity</th>
+      <th>Source</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="inventory-table">
+    {% if items %}
+      {% include "partials/inventory_rows.html" %}
+    {% else %}
+      <tr>
+        <td colspan="8" class="inventory-empty-row">
+          No inventory items match your filters yet.
+        </td>
+      </tr>
+    {% endif %}
+  </tbody>
+  </table>
+</form>

@@ -1,13 +1,11 @@
 #!/usr/bin/env sh
 set -eu
 
-DATA_DIR="${ITEMQ_DATA_DIR:-/data}"
-MEDIA_DIR="$DATA_DIR/media"
+export ITEMQ_DB_PATH="${ITEMQ_DB_PATH:-/data/itemq.db}"
+export ITEMQ_MEDIA_PATH="${ITEMQ_MEDIA_PATH:-/data/media}"
 
-mkdir -p "$MEDIA_DIR" /app/data
-
-ln -sfn "$MEDIA_DIR" /app/data/media
-
-export ITEMQ_DB_PATH="${ITEMQ_DB_PATH:-$DATA_DIR/itemq.db}"
+# Ensure required media directories exist (after volume mount)
+mkdir -p "$ITEMQ_MEDIA_PATH/inventory"
+mkdir -p "$ITEMQ_MEDIA_PATH/barcodes"
 
 exec "$@"

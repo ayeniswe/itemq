@@ -5,12 +5,21 @@
 </div>
 
 <div class="cards">
-  <div class="card card-primary">
-    <div class="card-icon">📦</div>
+  <div class="card card-secondary">
+    <div class="card-icon">📋</div>
     <div class="card-content">
       <h3>Total Items</h3>
       <p class="card-metric">{{ metrics.total_items }}</p>
-      <span class="card-hint">Unique products tracked</span>
+      <span class="card-hint">Distinct inventory records</span>
+    </div>
+  </div>
+
+  <div class="card card-primary">
+    <div class="card-icon">📦</div>
+    <div class="card-content">
+      <h3>Total Quantity</h3>
+      <p class="card-metric">{{ metrics.total_quantity }}</p>
+      <span class="card-hint">Units currently tracked</span>
     </div>
   </div>
 

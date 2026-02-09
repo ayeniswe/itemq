@@ -1,0 +1,17 @@
+{% block content %}
+<div class="inventory-card inventory-history-page">
+  <div class="inventory-history-header">
+    <h1>Action History</h1>
+  </div>
+  <p class="inventory-muted history-subtitle">View-only log of recent actions</p>
+
+  <div id="history-list"
+       class="history-list-container"
+       hx-get="/history/list?limit=200"
+       hx-trigger="load"
+       hx-target="#history-list"
+       hx-swap="innerHTML">
+    Loading history…
+  </div>
+</div>
+{% endblock %}

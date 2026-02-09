@@ -8,7 +8,7 @@
 <div class="generate-grid generate-grid-wide">
   <div class="generate-card">
     <h3>Inventory Selection</h3>
-    <p class="card-hint">Choose items and a barcode style to print.</p>
+    <p class="card-hint">Choose items and a barcode style to print. Quantities default to 0 so you stay in control.</p>
 
     <form id="barcode-selection"
           class="generate-form barcode-selection-form"
@@ -92,6 +92,17 @@
       checkbox.checked = shouldSelect;
       checkbox.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    if (shouldSelect) {
+      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
+        if (input.value === "0" || input.value === "") {
+          input.value = "1";
+        }
+      });
+    } else {
+      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
+        input.value = "0";
+      });
+    }
     updateSelectAllLabel();
   });
 
@@ -100,6 +111,16 @@
     if (!(target instanceof HTMLElement)) return;
     if (!target.classList.contains("barcode-item-checkbox")) return;
     updateSelectAllLabel();
+  });
+
+  // Keep focus on barcode search field after list updates
+  document.body.addEventListener("htmx:afterSwap", (event) => {
+    if (event.target && event.target.id === "barcode-inventory-list") {
+      const searchInput = document.getElementById("barcode-inventory-search");
+      if (searchInput instanceof HTMLElement) {
+        searchInput.focus({ preventScroll: true });
+      }
+    }
   });
 
   let cachedSelection = new Set();
@@ -141,6 +162,19 @@
     if (!selected.length) {
       if (statusMessage) {
         statusMessage.innerHTML = "<div class=\"barcode-warning\">Select items to print.</div>";
+      }
+      return;
+    }
+    const zeroQuantity = selected.some((checkbox) => {
+      const row = checkbox.closest(".barcode-inventory-row");
+      if (!row) return false;
+      const input = row.querySelector(".barcode-quantity input");
+      if (!input) return false;
+      return Number(input.value || "0") <= 0;
+    });
+    if (zeroQuantity) {
+      if (statusMessage) {
+        statusMessage.innerHTML = "<div class=\"barcode-warning\">Set quantities above zero before printing.</div>";
       }
       return;
     }
@@ -220,12 +254,25 @@
     const generateButton = document.getElementById("generate-labels");
     const statusMessage = document.getElementById("barcode-status-message");
     if (!printButton || !generateButton) return;
-    const { selected, missing } = getSelection();
+    const selection = getSelection();
+    const { selected, missing } = selection;
     const hasSelection = selected.length > 0;
+    const hasZeroQuantity = selected.some((checkbox) => {
+      const row = checkbox.closest(".barcode-inventory-row");
+      if (!row) return false;
+      const input = row.querySelector(".barcode-quantity input");
+      if (!input) return false;
+      return Number(input.value || "0") <= 0;
+    });
     generateButton.disabled = !hasSelection;
     printButton.disabled = !hasSelection;
     if (!hasSelection && statusMessage) {
       statusMessage.innerHTML = "";
+    } else if (hasSelection && hasZeroQuantity && statusMessage) {
+      statusMessage.innerHTML =
+        "<div class=\"barcode-warning\">Set quantities above zero before generating or printing.</div>";
+      generateButton.disabled = true;
+      printButton.disabled = true;
     } else if (hasSelection && missing.length && statusMessage) {
       statusMessage.innerHTML =
         "<div class=\"barcode-warning\">Some selections do not have labels yet. Generate labels to enable printing.</div>";
@@ -300,6 +347,27 @@
     if (!target.classList.contains("barcode-item-checkbox")) return;
     updateActionState();
   });
+
+  document.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.closest(".barcode-quantity")) return;
+    updateActionState();
+  });
+
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.closest(".barcode-quantity")) return;
+      event.preventDefault();
+      if (target instanceof HTMLInputElement) {
+        target.blur();
+      }
+    },
+    { passive: false }
+  );
 </script>
 
 {% endblock %}

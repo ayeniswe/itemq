@@ -280,3 +280,167 @@ def _build_barcode_property(barcode_prop: dict, barcode: str) -> dict:
             }
         ]
     }
+
+
+def upsert_notion_inventory_item(
+    token: str,
+    database_id: str,
+    item: dict,
+) -> None:
+    try:
+        notion = NotionClient(auth=token)
+        source = _get_primary_data_source(notion, database_id)
+        if source is None:
+            return
+        source_id = source["id"]
+        properties = source.get("properties", {})
+        barcode_prop = properties.get("Barcode", {})
+        prop_type = barcode_prop.get("type")
+        filter_payload = _build_barcode_filter(prop_type, item.get("barcode", ""))
+
+        existing_page_id = None
+        if filter_payload:
+            query = notion.data_sources.query(
+                data_source_id=source_id,
+                filter=filter_payload,
+            )
+            results = query.get("results", [])
+            if results:
+                existing_page_id = results[0].get("id")
+
+        payload = _build_inventory_properties(properties, item)
+        if existing_page_id:
+            notion.pages.update(page_id=existing_page_id, properties=payload)
+            return
+
+        notion.pages.create(
+            parent={"data_source_id": source_id},
+            properties=payload,
+        )
+    except Exception as exc:
+        logger.warning("Failed to sync local inventory item to Notion: %s", exc)
+
+
+def update_notion_inventory_image(
+    token: str,
+    database_id: str,
+    image_url: str,
+    barcode: str | None = None,
+) -> None:
+    try:
+        notion = NotionClient(auth=token)
+        source = _get_primary_data_source(notion, database_id)
+        if source is None:
+            return
+        source_id = source["id"]
+        properties = source.get("properties", {})
+        image_field = None
+        for name, prop in properties.items():
+            if name.lower() in {"image", "images"} and prop.get("type") == "files":
+                image_field = name
+                break
+        if image_field is None:
+            return
+
+        barcode_prop = properties.get("Barcode", {})
+        prop_type = barcode_prop.get("type")
+        filter_payload = _build_barcode_filter(prop_type, barcode or "")
+        if not filter_payload:
+            return
+
+        query = notion.data_sources.query(
+            data_source_id=source_id,
+            filter=filter_payload,
+        )
+        results = query.get("results", [])
+        if not results:
+            return
+
+        page_id = results[0].get("id")
+        notion.pages.update(
+            page_id=page_id,
+            properties={
+                image_field: {
+                    "files": [
+                        {
+                            "type": "external",
+                            "name": "Inventory image",
+                            "external": {"url": image_url},
+                        }
+                    ]
+                }
+            },
+        )
+    except Exception as exc:
+        logger.warning("Failed to sync inventory image to Notion: %s", exc)
+
+
+def _get_primary_data_source(notion: NotionClient, database_id: str) -> dict | None:
+    db = notion.databases.retrieve(database_id=database_id)
+    sources = [
+        notion.data_sources.retrieve(data_source_id=src.get("id"))
+        for src in db.get("data_sources", [])
+    ]
+    if not sources:
+        return None
+    return sources[0]
+
+
+def _build_barcode_filter(prop_type: str | None, barcode: str) -> dict | None:
+    if not barcode:
+        return None
+    if prop_type == "title":
+        return {"property": "Barcode", "title": {"equals": barcode}}
+    if prop_type == "rich_text":
+        return {"property": "Barcode", "rich_text": {"equals": barcode}}
+    return None
+
+
+def _build_inventory_properties(properties: dict, item: dict) -> dict:
+    payload: dict = {}
+
+    def set_text(name: str, value: str | None):
+        prop = properties.get(name)
+        if not prop or not value:
+            return
+        prop_type = prop.get("type")
+        if prop_type == "title":
+            payload[name] = {"title": [{"text": {"content": value}}]}
+        elif prop_type == "rich_text":
+            payload[name] = {"rich_text": [{"text": {"content": value}}]}
+        elif prop_type == "select":
+            payload[name] = {"select": {"name": value}}
+        elif prop_type == "multi_select":
+            payload[name] = {"multi_select": [{"name": value}]}
+
+    def set_number(name: str, value: int | None):
+        prop = properties.get(name)
+        if not prop or value is None:
+            return
+        if prop.get("type") == "number":
+            payload[name] = {"number": int(value)}
+
+    def set_date(name: str, value: str | None):
+        prop = properties.get(name)
+        if not prop or not value:
+            return
+        if prop.get("type") == "date":
+            payload[name] = {"date": {"start": value}}
+
+    set_text("Name", item.get("name"))
+    set_text("Barcode", item.get("barcode"))
+    set_number("Quantity", item.get("quantity"))
+    set_text("Group Name", item.get("group_name"))
+    set_text("Collection", item.get("collection_name"))
+    set_text("Collection Category", item.get("collection_category"))
+    set_text("Occasion", item.get("occasion"))
+    set_text("Season", item.get("season"))
+    set_text("Holiday", item.get("holiday"))
+    set_text("Emotion", item.get("emotion"))
+    set_text("Color", item.get("color"))
+    set_text("Event", item.get("event_name"))
+    set_text("Event Location", item.get("event_location"))
+    set_text("Event Notes", item.get("event_notes"))
+    set_date("Event Date", item.get("event_date"))
+
+    return payload

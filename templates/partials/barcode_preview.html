@@ -13,11 +13,23 @@
     {% for barcode in items %}
       <div class="barcode-card">
         <div class="barcode-card-header">
-          <span class="barcode-card-name">{{ barcode.name }}</span>
+          <div class="barcode-card-title">
+            <span class="barcode-card-name">{{ barcode.name }}</span>
+            {% if barcode.group_name %}
+              <span class="barcode-card-group">{{ barcode.group_name }}</span>
+            {% endif %}
+          </div>
           <span class="source-pill source-{{ barcode.source }}">
             {{ barcode.source|capitalize }}
           </span>
         </div>
+        {% if barcode.image_path %}
+          <div class="barcode-card-image">
+            <img src="/media/{{ barcode.image_path }}"
+                 alt="{{ barcode.name }} preview"
+                 loading="lazy">
+          </div>
+        {% endif %}
         <div class="barcode-art">
           {% if barcode.label_path %}
             <img src="/media/{{ barcode.label_path }}"

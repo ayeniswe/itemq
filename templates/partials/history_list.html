@@ -1,0 +1,21 @@
+<ul class="inventory-history-list">
+  {% if history %}
+    {% for entry in history %}
+      <li class="inventory-history-item {% if entry['undone_at'] %}is-undone{% endif %}">
+        <div>
+          <p class="inventory-history-summary">{{ entry['summary'] }}</p>
+          <p class="inventory-muted">
+            {{ entry['created_at'] }}{% if entry['undone_at'] %} · undone{% endif %}
+          </p>
+        </div>
+        <div class="history-actions">
+          <span class="inventory-muted">
+            {% if entry['undone_at'] %}Undone{% else %}Applied{% endif %}
+          </span>
+        </div>
+      </li>
+    {% endfor %}
+  {% else %}
+    <li class="inventory-muted">No history yet.</li>
+  {% endif %}
+</ul>
