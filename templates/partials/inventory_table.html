@@ -11,7 +11,8 @@
             <button type="button"
                     class="btn-secondary"
                     {% if page <= 1 %}disabled{% endif %}
-                    hx-get="/inventory/table?page={{ page - 1 }}"
+                    hx-get="/inventory/table"
+                    hx-vals='{"page": "{{ page - 1 }}"}'
                     hx-target="#inventory-table-wrapper"
                     hx-swap="innerHTML"
                     hx-include="#inventory-filters, #include-notion-toggle">
@@ -20,7 +21,8 @@
             <button type="button"
                     class="btn-secondary"
                     {% if page >= total_pages %}disabled{% endif %}
-                    hx-get="/inventory/table?page={{ page + 1 }}"
+                    hx-get="/inventory/table"
+                    hx-vals='{"page": "{{ page + 1 }}"}'
                     hx-target="#inventory-table-wrapper"
                     hx-swap="innerHTML"
                     hx-include="#inventory-filters, #include-notion-toggle">
