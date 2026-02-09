@@ -40,3 +40,14 @@ CREATE TABLE IF NOT EXISTS barcode_labels (
     generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (inventory_id) REFERENCES inventory(id)
 );
+
+-- Tracks user-visible changes for undo/history
+CREATE TABLE IF NOT EXISTS inventory_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    before_state JSON,
+    after_state JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    undone_at DATETIME
+);

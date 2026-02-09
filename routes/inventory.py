@@ -24,8 +24,17 @@ from db import (
     delete_inventory_item,
     get_inventory_item,
     get_inventory_item_by_barcode,
+    get_inventory_items_by_ids,
     get_plugin,
     get_inventory_filter_options,
+    add_history_entry,
+    list_history,
+    get_history_entry,
+    mark_history_undone,
+    update_inventory_full,
+    mark_history_redone,
+    latest_pending_history,
+    latest_redo_candidate,
 )
 from model import InventoryItem, Plugin
 from services.barcode import generate_barcode
@@ -40,7 +49,79 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 PAGE_SIZE = 25
 
-_LAST_DELETED: dict | None = None
+def _parse_history_row(row) -> dict | None:
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "action": row["action"],
+        "summary": row["summary"],
+        "before_state": row["before_state"],
+        "after_state": row["after_state"],
+        "created_at": row["created_at"],
+        "undone_at": row["undone_at"],
+    }
+
+
+def _restore_item(state: dict) -> int:
+    """Recreate an inventory item from stored state."""
+    return add_inventory_item(
+        name=state.get("name", "Restored Item"),
+        barcode=state.get("barcode"),
+        quantity=state.get("quantity", 0),
+        image_path=state.get("image_path"),
+        image_hash=state.get("image_hash"),
+        group_name=state.get("group_name"),
+        collection_name=state.get("collection_name"),
+        collection_category=state.get("collection_category"),
+        occasion=state.get("occasion"),
+        season=state.get("season"),
+        holiday=state.get("holiday"),
+        emotion=state.get("emotion"),
+        color=state.get("color"),
+        event_name=state.get("event_name"),
+        event_date=state.get("event_date"),
+        event_location=state.get("event_location"),
+        event_notes=state.get("event_notes"),
+        notion_page_id=state.get("notion_page_id"),
+        source=state.get("source", "local"),
+    )
+
+
+def _delete_by_state(state: dict) -> None:
+    """Delete an item best-effort using id fallback to barcode."""
+    target_id = state.get("id")
+    if target_id and get_inventory_item(target_id):
+        delete_inventory_item(target_id)
+        return
+    barcode = state.get("barcode")
+    if barcode:
+        item = get_inventory_item_by_barcode(barcode)
+        if item:
+            delete_inventory_item(item["id"])
+
+
+def _apply_state(state: dict) -> None:
+    """Apply a full state to the database, updating if present else restoring."""
+    target_id = state.get("id")
+    if target_id and get_inventory_item(target_id):
+        update_inventory_full(target_id, state)
+    else:
+        _restore_item(state)
+
+
+def _json_load(raw):
+    if raw is None:
+        return None
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        import json
+
+        return json.loads(raw)
+    except Exception:
+        return None
+_LAST_HISTORY_ID: int | None = None
 
 
 def _build_filter_payload(
@@ -250,11 +331,15 @@ async def delete_inventory_item_row(
     color: str | None = Form(None),
     event_name: str | None = Form(None),
 ):
-    global _LAST_DELETED
     item_row = get_inventory_item(item_id)
     if item_row is not None:
-        _LAST_DELETED = dict(item_row)
-    delete_inventory_item(item_id)
+        add_history_entry(
+            action="delete_single",
+            summary=f"Deleted item '{item_row['name']}' (barcode {item_row['barcode']})",
+            before_state=dict(item_row),
+            after_state=None,
+        )
+        delete_inventory_item(item_id)
     filters = _build_filter_payload(
         search=search,
         search_case=search_case,
@@ -269,8 +354,52 @@ async def delete_inventory_item_row(
         event_name=event_name,
     )
     response = _render_inventory_table(request, include_notion, filters, page=1)
-    if _LAST_DELETED:
-        response.headers["HX-Trigger"] = "inventory:undoAvailable"
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
+    return response
+
+
+@router.post("/inventory/bulk_delete", response_class=HTMLResponse)
+async def bulk_delete_inventory_items(
+    request: Request,
+    selected_ids: list[int] = Form(...),
+    include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+):
+    items = [dict(row) for row in get_inventory_items_by_ids(selected_ids)]
+    for row in items:
+        delete_inventory_item(row["id"])
+    add_history_entry(
+        action="delete_multi",
+        summary=f"Deleted {len(items)} items",
+        before_state=items,
+        after_state=None,
+    )
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
     return response
 
 
@@ -330,6 +459,13 @@ async def create_inventory_item(
 
     _sync_local_item_to_notion(request, item_id)
 
+    add_history_entry(
+        action="create",
+        summary=f"Created item '{name}' (barcode {barcode})",
+        before_state=None,
+        after_state=dict(get_inventory_item(item_id)),
+    )
+
     filters = _build_filter_payload(
         search=filter_search,
         search_case=filter_search_case,
@@ -343,7 +479,9 @@ async def create_inventory_item(
         color=filter_color,
         event_name=filter_event_name,
     )
-    return _render_inventory_table(request, include_notion, filters, page=page)
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
+    return response
 
 
 # -----------------------------
@@ -355,9 +493,16 @@ async def update_inventory_item_name(
     item_id: int,
     name: str = Form(...),
 ):
+    before = get_inventory_item(item_id)
     update_inventory_name(item_id, name)
     _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
+    add_history_entry(
+        action="update_name",
+        summary=f"Renamed item '{before['name']}' → '{name}'",
+        before_state=dict(before) if before else None,
+        after_state=dict(get_inventory_item(item_id)) if item else None,
+    )
     response = templates.TemplateResponse(
         "partials/inventory_name.html",
         {
@@ -366,7 +511,7 @@ async def update_inventory_item_name(
         },
     )
     # Refresh duplicate insights when a name change could create/remove same-name duplicates
-    response.headers["HX-Trigger"] = "inventory:refreshDuplicates"
+    response.headers["HX-Trigger"] = "inventory:refreshDuplicates,inventory:refreshHistory"
     return response
 
 
@@ -379,16 +524,25 @@ async def update_inventory_item_quantity(
     item_id: int,
     quantity: int = Form(...),
 ):
+    before = get_inventory_item(item_id)
     update_inventory_quantity(item_id, quantity)
     _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
-    return templates.TemplateResponse(
+    add_history_entry(
+        action="update_quantity",
+        summary=f"Quantity for '{before['name'] if before else item.name}' set to {quantity}",
+        before_state=dict(before) if before else None,
+        after_state=dict(get_inventory_item(item_id)) if item else None,
+    )
+    response = templates.TemplateResponse(
         "partials/inventory_quantity.html",
         {
             "request": request,
             "item": item,
         },
     )
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
+    return response
 
 
 # -----------------------------
@@ -426,6 +580,7 @@ async def update_inventory_item_image(
         f.write(file_bytes)
 
     # Persist relative path in DB
+    before = get_inventory_item(item_id)
     update_inventory_image(
         item_id,
         f"inventory/{filename}",
@@ -435,6 +590,13 @@ async def update_inventory_item_image(
         update_inventory_image_hash(item_id, image_hash)
 
     _sync_inventory_image_to_notion(request, item_id, f"inventory/{filename}")
+
+    add_history_entry(
+        action="update_image",
+        summary=f"Updated image for '{before['name'] if before else 'item'}'",
+        before_state=dict(before) if before else None,
+        after_state=dict(get_inventory_item(item_id)),
+    )
 
     filters = _build_filter_payload(
         search=search,
@@ -449,7 +611,9 @@ async def update_inventory_item_image(
         color=color,
         event_name=event_name,
     )
-    return _render_inventory_table(request, include_notion, filters, page=page)
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
+    return response
 
 
 @router.post("/inventory/{item_id}/details", response_class=HTMLResponse)
@@ -475,6 +639,7 @@ async def update_inventory_item_details(
     event_location: str | None = Form(None),
     event_notes: str | None = Form(None),
 ):
+    before = get_inventory_item(item_id)
     update_inventory_details(
         item_id,
         group_name,
@@ -492,12 +657,18 @@ async def update_inventory_item_details(
     )
     _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
+    add_history_entry(
+        action="update_details",
+        summary=f"Updated details for '{before['name'] if before else item.name}'",
+        before_state=dict(before) if before else None,
+        after_state=dict(get_inventory_item(item_id)) if item else None,
+    )
     if refresh_row:
         response = templates.TemplateResponse(
             "partials/inventory_rows.html",
             {"request": request, "items": [item]},
         )
-        response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshTable"
+        response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshTable,inventory:refreshHistory"
         return response
     if refresh_table:
         filters = _build_filter_payload(
@@ -514,7 +685,7 @@ async def update_inventory_item_details(
             event_name=event_name,
         )
         response = _render_inventory_table(request, include_notion, filters, page=page)
-        response.headers["HX-Trigger"] = "inventory:filtersUpdated"
+        response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshHistory"
         return response
     response = templates.TemplateResponse(
         "partials/inventory_details.html",
@@ -523,7 +694,7 @@ async def update_inventory_item_details(
             "item": item,
         },
     )
-    response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshTable"
+    response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshTable,inventory:refreshHistory"
     return response
 
 
@@ -548,9 +719,11 @@ async def view_inventory_item_details(
     )
 
 
-@router.post("/inventory/undo", response_class=HTMLResponse)
-async def undo_inventory_delete(
+@router.post("/inventory/undo_action", response_class=HTMLResponse)
+async def undo_history_action(
     request: Request,
+    history_id: int | None = Form(None),
+    view: str | None = Form(None),
     include_notion: bool = Form(False),
     page: int = Form(1),
     search: str | None = Form(None),
@@ -565,30 +738,48 @@ async def undo_inventory_delete(
     color: str | None = Form(None),
     event_name: str | None = Form(None),
 ):
-    global _LAST_DELETED
-    if _LAST_DELETED:
-        add_inventory_item(
-            name=_LAST_DELETED["name"],
-            barcode=_LAST_DELETED["barcode"],
-            quantity=_LAST_DELETED["quantity"],
-            image_path=_LAST_DELETED["image_path"],
-            image_hash=_LAST_DELETED["image_hash"],
-            group_name=_LAST_DELETED["group_name"],
-            collection_name=_LAST_DELETED["collection_name"],
-            collection_category=_LAST_DELETED["collection_category"],
-            occasion=_LAST_DELETED["occasion"],
-            season=_LAST_DELETED["season"],
-            holiday=_LAST_DELETED["holiday"],
-            emotion=_LAST_DELETED["emotion"],
-            color=_LAST_DELETED["color"],
-            event_name=_LAST_DELETED["event_name"],
-            event_date=_LAST_DELETED["event_date"],
-            event_location=_LAST_DELETED["event_location"],
-            event_notes=_LAST_DELETED["event_notes"],
-            notion_page_id=_LAST_DELETED["notion_page_id"],
-            source=_LAST_DELETED["source"],
+    # stack: latest pending action
+    if history_id is not None:
+        entry = get_history_entry(history_id)
+    else:
+        entry = latest_pending_history()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="No history to undo.")
+    if entry["undone_at"]:
+        raise HTTPException(status_code=400, detail="Action already undone.")
+
+    action = entry["action"]
+    before_state = _json_load(entry["before_state"])
+    after_state = _json_load(entry["after_state"])
+
+    # Handle creation undo
+    if action == "create" and after_state:
+        target_id = after_state.get("id")
+        if target_id:
+            delete_inventory_item(target_id)
+    # Handle deletes (single or multi): restore previous items
+    elif action in {"delete_single", "delete_multi"} and before_state:
+        items = before_state if isinstance(before_state, list) else [before_state]
+        for item_state in items:
+            _restore_item(item_state)
+    # Handle generic updates (name, quantity, details, image)
+    elif action.startswith("update_") and before_state:
+        target_id = before_state.get("id")
+        if target_id and get_inventory_item(target_id):
+            update_inventory_full(target_id, before_state)
+        else:
+            _restore_item(before_state)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported action for undo.")
+
+    mark_history_undone(entry["id"])
+
+    if view == "history":
+        history_rows = list_history(limit=200)
+        return templates.TemplateResponse(
+            "partials/history_list.html",
+            {"request": request, "history": history_rows},
         )
-        _LAST_DELETED = None
 
     filters = _build_filter_payload(
         search=search,
@@ -603,7 +794,81 @@ async def undo_inventory_delete(
         color=color,
         event_name=event_name,
     )
-    return _render_inventory_table(request, include_notion, filters, page=page)
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory,inventory:refreshTable"
+    return response
+
+
+@router.post("/inventory/redo_action", response_class=HTMLResponse)
+async def redo_history_action(
+    request: Request,
+    history_id: int | None = Form(None),
+    view: str | None = Form(None),
+    include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+):
+    # stack: latest undone entry
+    if history_id is not None:
+        entry = get_history_entry(history_id)
+    else:
+        entry = latest_redo_candidate()
+    if entry is None or not entry["undone_at"]:
+        raise HTTPException(status_code=404, detail="No action to redo.")
+
+    action = entry["action"]
+    before_state = _json_load(entry["before_state"])
+    after_state = _json_load(entry["after_state"])
+
+    # Reapply original action forward
+    if action == "create":
+        if after_state:
+            _apply_state(after_state)
+    elif action in {"delete_single", "delete_multi"}:
+        items = before_state if isinstance(before_state, list) else [before_state]
+        for item_state in items:
+            _delete_by_state(item_state)
+    elif action.startswith("update_"):
+        if after_state:
+            _apply_state(after_state)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported action for redo.")
+
+    mark_history_redone(entry["id"])
+
+    if view == "history":
+        history_rows = list_history(limit=200)
+        return templates.TemplateResponse(
+            "partials/history_list.html",
+            {"request": request, "history": history_rows},
+        )
+
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory,inventory:refreshTable"
+    return response
 
 
 @router.get("/inventory/{item_id}/name/edit", response_class=HTMLResponse)
@@ -615,6 +880,18 @@ async def edit_inventory_name_cell(
     return templates.TemplateResponse(
         "partials/inventory_name_edit.html",
         {"request": request, "item": item},
+    )
+
+
+@router.get("/inventory/history", response_class=HTMLResponse)
+async def inventory_history(request: Request, limit: int = 20):
+    history_rows = list_history(limit=limit)
+    return templates.TemplateResponse(
+        "partials/inventory_history.html",
+        {
+            "request": request,
+            "history": history_rows,
+        },
     )
 
 

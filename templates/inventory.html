@@ -1,8 +1,40 @@
 {% block content %}
 
 <div class="inventory-header">
-  <h1>Your Inventory</h1>
-  <p class="subtitle">A simple, organized view of everything you have.</p>
+  <div class="inventory-header-top">
+    <div>
+      <h1>Your Inventory</h1>
+      <p class="subtitle">A simple, organized view of everything you have.</p>
+    </div>
+    <div class="inventory-header-actions">
+      <button id="inventory-undo-btn"
+              type="button"
+              class="icon-btn"
+              title="Undo (latest change)" data-tooltip="Undo latest change"
+              aria-label="Undo"
+              hx-post="/inventory/undo_action"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-filters, #include-notion-toggle">
+        <span class="icon-undo" aria-hidden="true"></span>
+      </button>
+      <button id="inventory-redo-btn"
+              type="button"
+              class="icon-btn"
+              title="Redo (most recently undone)" data-tooltip="Redo most recently undone"
+              aria-label="Redo"
+              hx-post="/inventory/redo_action"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-filters, #include-notion-toggle">
+        <span class="icon-redo" aria-hidden="true"></span>
+      </button>
+      <button id="inventory-add-toggle"
+              class="btn-secondary inventory-add-toggle">
+        + Add inventory item
+      </button>
+    </div>
+  </div>
 
   <div class="inventory-actions">
     <label class="inventory-toggle">
@@ -20,10 +52,6 @@
       <span>Include Notion Inventory</span>
     </label>
 
-    <button id="inventory-add-toggle"
-            class="btn-secondary inventory-add-toggle">
-      + Add inventory item
-    </button>
   </div>
 
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
@@ -122,10 +150,25 @@
 
 <div id="inventory-table-card" class="inventory-card">
   <div class="inventory-table-controls">
-    <button id="inventory-table-size-toggle"
-            type="button"
-            class="inventory-table-toggle"
-            aria-label="Maximize table">+</button>
+    <div class="inventory-table-actions-left">
+      <button id="inventory-bulk-delete"
+              type="button"
+              class="btn-secondary"
+              data-bulk-delete
+              hidden
+              hx-post="/inventory/bulk_delete"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-bulk-form, #inventory-filters, #include-notion-toggle">
+        Delete selected
+      </button>
+    </div>
+    <div class="inventory-table-actions-right">
+      <button id="inventory-table-size-toggle"
+              type="button"
+              class="inventory-table-toggle"
+              aria-label="Maximize table">+</button>
+    </div>
   </div>
   <div class="inventory-table-wrapper">
     <form id="inventory-filters" class="inventory-search-row">
@@ -308,16 +351,6 @@
   </div>
 </div>
 
-<div id="inventory-undo" class="inventory-undo" hidden>
-  <span>Inventory item deleted.</span>
-  <button class="btn-secondary"
-          hx-post="/inventory/undo"
-          hx-target="#inventory-table-wrapper"
-          hx-swap="innerHTML"
-          hx-include="#inventory-filters, #include-notion-toggle">
-    Undo
-  </button>
-</div>
 
 <div class="inventory-card inventory-duplicates-card">
   <div id="inventory-duplicates"
@@ -436,7 +469,6 @@
   (function () {
     const searchInput = document.getElementById("inventory-search");
     const countLabel = document.getElementById("inventory-search-count");
-    const undoBanner = document.getElementById("inventory-undo");
     const filtersForm = document.getElementById("inventory-filters");
     const includeNotionToggle = document.getElementById("include-notion-toggle");
     const pageInput = document.getElementById("inventory-page");
@@ -482,6 +514,7 @@
       window.refreshInventoryDuplicates?.();
     });
 
+
     document.body.addEventListener("inventory:refreshTable", () => {
       if (!filtersForm || !window.htmx) return;
       const formData = new FormData(filtersForm);
@@ -496,19 +529,50 @@
       });
     });
 
-    document.body.addEventListener("inventory:undoAvailable", () => {
-      if (undoBanner) {
-        undoBanner.hidden = false;
-      }
-    });
+    updateCount();
+  })();
+</script>
+
+<!-- Bulk selection + delete -->
+<script>
+  (function () {
+    const bulkButton = document.getElementById("inventory-bulk-delete");
+
+    const wireUp = () => {
+      const selectAll = document.getElementById("inventory-select-all");
+      const rowChecks = Array.from(document.querySelectorAll(".inventory-select-row"));
+      if (!selectAll || !bulkButton) return;
+
+      const sync = () => {
+        const anyChecked = rowChecks.some((c) => c.checked);
+        bulkButton.hidden = !anyChecked;
+        if (anyChecked && rowChecks.every((c) => c.checked)) {
+          selectAll.checked = true;
+          selectAll.indeterminate = false;
+        } else if (anyChecked) {
+          selectAll.indeterminate = true;
+          selectAll.checked = false;
+        } else {
+          selectAll.indeterminate = false;
+          selectAll.checked = false;
+        }
+      };
+
+      selectAll.addEventListener("change", () => {
+        rowChecks.forEach((c) => (c.checked = selectAll.checked));
+        sync();
+      });
+      rowChecks.forEach((c) => c.addEventListener("change", sync));
+      sync();
+    };
 
     document.body.addEventListener("htmx:afterSwap", (event) => {
-      if (event.target && event.target.id === "inventory-table-wrapper" && undoBanner) {
-        undoBanner.hidden = true;
+      if (event.target && event.target.id === "inventory-table-wrapper") {
+        wireUp();
       }
     });
 
-    updateCount();
+    wireUp();
   })();
 </script>
 

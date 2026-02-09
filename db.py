@@ -129,6 +129,44 @@ class InventoryDB(Protocol):
 
     def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]: ...
 
+    # History / undo
+    def add_history_entry(
+        self,
+        action: str,
+        summary: str,
+        before_state: dict | list | None,
+        after_state: dict | list | None,
+    ) -> int: ...
+
+    def list_history(self, limit: int = 50) -> Iterable[sqlite3.Row]: ...
+
+    def get_history_entry(self, history_id: int) -> Optional[sqlite3.Row]: ...
+
+    def mark_history_undone(self, history_id: int) -> None: ...
+
+    def update_inventory_full(self, item_id: int, state: dict) -> None: ...
+
+    def mark_history_redone(self, history_id: int) -> None: ...
+
+    def latest_pending_history(self) -> Optional[sqlite3.Row]: ...
+
+    def latest_redo_candidate(self) -> Optional[sqlite3.Row]: ...
+
+    # History / undo
+    def add_history_entry(
+        self,
+        action: str,
+        summary: str,
+        before_state: dict | list | None,
+        after_state: dict | list | None,
+    ) -> int: ...
+
+    def list_history(self, limit: int = 50) -> Iterable[sqlite3.Row]: ...
+
+    def get_history_entry(self, history_id: int) -> Optional[sqlite3.Row]: ...
+
+    def mark_history_undone(self, history_id: int) -> None: ...
+
 
 # =============================
 # SQLite Implementation
@@ -151,6 +189,8 @@ class SQLiteInventoryDB:
         with self.conn:
             self.conn.executescript(Path("models.sql").read_text())
             self._ensure_inventory_columns()
+            self._ensure_history_table()
+            self._ensure_history_table()
 
     def _ensure_inventory_columns(self) -> None:
         columns = {
@@ -179,6 +219,30 @@ class SQLiteInventoryDB:
                 self.conn.execute(
                     f"ALTER TABLE inventory ADD COLUMN {column} {column_type}"
                 )
+
+    def _ensure_history_table(self) -> None:
+        exists = self.conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table' AND name='inventory_history'
+            """
+        ).fetchone()
+        if not exists:
+            self.conn.executescript(Path("models.sql").read_text())
+
+    def _ensure_history_table(self) -> None:
+        exists = self.conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table' AND name='inventory_history'
+            """
+        ).fetchone()
+        if not exists:
+            self.conn.executescript(
+                Path("models.sql").read_text()
+            )
 
     # -------- Inventory Ops --------
 
@@ -704,6 +768,183 @@ class SQLiteInventoryDB:
             "low_stock": int(low_stock_count or 0),
         }
 
+    # -------- History / Undo --------
+
+    def add_history_entry(
+        self,
+        action: str,
+        summary: str,
+        before_state: dict | list | None,
+        after_state: dict | list | None,
+    ) -> int:
+        cursor = self.conn.execute(
+            """
+            INSERT INTO inventory_history (action, summary, before_state, after_state)
+            VALUES (?, ?, json(?), json(?))
+            """,
+            (
+                action,
+                summary,
+                json.dumps(before_state) if before_state is not None else None,
+                json.dumps(after_state) if after_state is not None else None,
+            ),
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def list_history(self, limit: int = 50):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    def get_history_entry(self, history_id: int):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            WHERE id = ?
+            """,
+            (history_id,),
+        ).fetchone()
+
+    def mark_history_undone(self, history_id: int) -> None:
+        self.conn.execute(
+            "UPDATE inventory_history SET undone_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (history_id,),
+        )
+        self.conn.commit()
+
+    def mark_history_redone(self, history_id: int) -> None:
+        self.conn.execute(
+            "UPDATE inventory_history SET undone_at = NULL WHERE id = ?",
+            (history_id,),
+        )
+        self.conn.commit()
+
+    def latest_pending_history(self):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            WHERE undone_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    def latest_redo_candidate(self):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            WHERE undone_at IS NOT NULL
+            ORDER BY undone_at DESC, created_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    def update_inventory_full(self, item_id: int, state: dict) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory
+            SET name = ?,
+                barcode = ?,
+                quantity = ?,
+                image_path = ?,
+                image_hash = ?,
+                group_name = ?,
+                collection_name = ?,
+                collection_category = ?,
+                occasion = ?,
+                season = ?,
+                holiday = ?,
+                emotion = ?,
+                color = ?,
+                event_name = ?,
+                event_date = ?,
+                event_location = ?,
+                event_notes = ?,
+                notion_page_id = ?,
+                source = ?\n            WHERE id = ?\n            """,
+            (
+                state.get("name"),
+                state.get("barcode"),
+                state.get("quantity"),
+                state.get("image_path"),
+                state.get("image_hash"),
+                state.get("group_name"),
+                state.get("collection_name"),
+                state.get("collection_category"),
+                state.get("occasion"),
+                state.get("season"),
+                state.get("holiday"),
+                state.get("emotion"),
+                state.get("color"),
+                state.get("event_name"),
+                state.get("event_date"),
+                state.get("event_location"),
+                state.get("event_notes"),
+                state.get("notion_page_id"),
+                state.get("source", "local"),
+                item_id,
+            ),
+        )
+        self.conn.commit()
+
+    # -------- History / Undo --------
+
+    def add_history_entry(
+        self,
+        action: str,
+        summary: str,
+        before_state: dict | list | None,
+        after_state: dict | list | None,
+    ) -> int:
+        cursor = self.conn.execute(
+            """
+            INSERT INTO inventory_history (action, summary, before_state, after_state)
+            VALUES (?, ?, json(?), json(?))
+            """,
+            (action, summary, json.dumps(before_state) if before_state is not None else None,
+             json.dumps(after_state) if after_state is not None else None),
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def list_history(self, limit: int = 50):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    def get_history_entry(self, history_id: int):
+        return self.conn.execute(
+            """
+            SELECT id, action, summary, before_state, after_state, created_at, undone_at
+            FROM inventory_history
+            WHERE id = ?
+            """,
+            (history_id,),
+        ).fetchone()
+
+    def mark_history_undone(self, history_id: int) -> None:
+        self.conn.execute(
+            "UPDATE inventory_history SET undone_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (history_id,),
+        )
+        self.conn.commit()
+
     # -------- Plugin Ops --------
 
     def get_plugin(self, name: Literal["notion", "local"]) -> Optional[sqlite3.Row]:
@@ -960,3 +1201,37 @@ def upsert_barcode_labels(
 
 def get_dashboard_metrics(low_stock_threshold: int = 3) -> dict[str, int]:
     return get_db().get_dashboard_metrics(low_stock_threshold)
+
+
+# -------- History / Undo helpers --------
+
+def add_history_entry(action: str, summary: str, before_state, after_state) -> int:
+    return get_db().add_history_entry(action, summary, before_state, after_state)
+
+
+def list_history(limit: int = 50):
+    return get_db().list_history(limit)
+
+
+def get_history_entry(history_id: int):
+    return get_db().get_history_entry(history_id)
+
+
+def mark_history_undone(history_id: int) -> None:
+    return get_db().mark_history_undone(history_id)
+
+
+def update_inventory_full(item_id: int, state: dict) -> None:
+    return get_db().update_inventory_full(item_id, state)
+
+
+def mark_history_redone(history_id: int) -> None:
+    return get_db().mark_history_redone(history_id)
+
+
+def latest_pending_history():
+    return get_db().latest_pending_history()
+
+
+def latest_redo_candidate():
+    return get_db().latest_redo_candidate()

@@ -1,6 +1,9 @@
 {% for item in items %}
 <tr class="inventory-row" id="inventory-row-{{ item.id }}"
     data-search="{{ item.name }} {{ item.barcode }} {{ item.source }} {{ item.group_name }} {{ item.collection_name }} {{ item.collection_category }} {{ item.occasion }} {{ item.season }} {{ item.holiday }} {{ item.emotion }} {{ item.color }} {{ item.event_name }} {{ item.event_date }} {{ item.event_location }} {{ item.event_notes }}">
+  <td class="inventory-cell inventory-select-cell">
+    <input type="checkbox" name="selected_ids" value="{{ item.id }}" class="inventory-select-row" aria-label="Select {{ item.name }}">
+  </td>
   <td class="inventory-cell">
     <div class="inventory-image-slot">
       {% if item.image_path %}

@@ -1,8 +1,9 @@
-<input type="hidden" name="page" value="{{ page }}">
-<table class="inventory-table">
+<form id="inventory-bulk-form">
+  <input type="hidden" name="page" value="{{ page }}">
+  <table class="inventory-table">
   <thead>
     <tr class="inventory-pagination-row">
-      <th colspan="8">
+      <th colspan="9">
         <div class="inventory-pagination">
           <span class="inventory-muted">
             Page {{ page }} of {{ total_pages }} · {{ total_items }} items
@@ -33,6 +34,9 @@
       </th>
     </tr>
     <tr>
+      <th class="inventory-select-col">
+        <input type="checkbox" id="inventory-select-all" aria-label="Select all rows">
+      </th>
       <th>Image</th>
       <th>Barcode</th>
       <th>Name</th>
@@ -54,4 +58,5 @@
       </tr>
     {% endif %}
   </tbody>
-</table>
+  </table>
+</form>

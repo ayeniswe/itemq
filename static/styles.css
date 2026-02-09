@@ -131,6 +131,10 @@ body {
   mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M7 2h10v6h5v8h-5v6H7v-6H2V8h5z'/></svg>");
 }
 
+.icon-history {
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M13 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-2.05-4.95L16 9h5V4l-1.96 1.96A8.96 8.96 0 0 0 13 3zm-1 5v5h5v-2h-3V8z'/></svg>");
+}
+
 main {
   flex: 1;
   padding: 2rem;
@@ -257,6 +261,81 @@ main {
 
 .inventory-header {
   margin-bottom: 1.5rem;
+}
+
+.inventory-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.inventory-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.icon-btn:hover {
+  background: #eef2ff;
+  border-color: #cbd5e1;
+}
+
+.icon-btn[data-tooltip] {
+  position: relative;
+}
+
+.icon-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: -34px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  transform-origin: top center;
+}
+
+.icon-btn[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.icon-undo,
+.icon-redo {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.icon-undo {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="%230256d1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20c0-6-5-11-11-11H4"/></svg>');
+}
+
+.icon-redo {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" stroke="%230256d1" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 4 20 9 15 14"/><path d="M4 20c0-6 5-11 11-11h5"/></svg>');
 }
 
 .inventory-header h1 {
@@ -485,6 +564,22 @@ main {
   font-size: 0.9rem;
 }
 
+.inventory-table-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.inventory-table-actions-left,
+.inventory-table-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .inventory-table thead {
   background: #f9fafb;
 }
@@ -499,6 +594,18 @@ main {
   padding: 0.75rem;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+}
+
+.inventory-select-col {
+  width: 32px;
+}
+
+.inventory-select-cell {
+  text-align: center;
+}
+
+#inventory-bulk-delete {
+  white-space: nowrap;
 }
 
 .inventory-image-slot {
@@ -769,21 +876,76 @@ main {
   gap: 0.5rem;
 }
 
-.inventory-undo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1rem 0;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
 
 .inventory-duplicates-card {
   margin-top: 1.25rem;
   overflow-y: auto;
   max-height: 24rem;
+}
+
+.inventory-history-card {
+  margin-top: 1.25rem;
+}
+
+.inventory-history-page h1 {
+  margin: 0;
+}
+
+.history-subtitle {
+  margin: 0.25rem 0 0.75rem 0;
+}
+
+.history-list-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.inventory-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inventory-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.inventory-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inventory-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.inventory-history-item.is-undone {
+  opacity: 0.6;
+}
+
+.inventory-history-summary {
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+}
+
+.history-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .inventory-duplicates h3 {

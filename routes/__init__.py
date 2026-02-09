@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from routes.inventory import router as inventory_router
 from routes.generate import router as generate_router
 from routes.plugins import router as plugins_router
+from routes.history import router as history_router
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -39,6 +40,7 @@ app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 app.include_router(inventory_router)
 app.include_router(generate_router)
 app.include_router(plugins_router)
+app.include_router(history_router)
 
 
 @app.get("/", response_class=HTMLResponse)

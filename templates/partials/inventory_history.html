@@ -1,0 +1,64 @@
+<div class="inventory-history">
+  <div class="inventory-history-header">
+    <h3>History</h3>
+    <div class="history-actions">
+      <button class="btn-secondary"
+              hx-post="/inventory/undo_action"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-filters, #include-notion-toggle">
+        Undo
+      </button>
+      <button class="btn-secondary"
+              hx-post="/inventory/redo_action"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-filters, #include-notion-toggle">
+        Redo
+      </button>
+      <button class="btn-secondary"
+              hx-get="/inventory/history"
+              hx-target="#inventory-history"
+              hx-swap="innerHTML">
+        Refresh
+      </button>
+    </div>
+  </div>
+  <ul class="inventory-history-list">
+    {% if history %}
+      {% for entry in history %}
+        <li class="inventory-history-item {% if entry['undone_at'] %}is-undone{% endif %}">
+          <div>
+            <p class="inventory-history-summary">{{ entry['summary'] }}</p>
+            <p class="inventory-muted">
+              {{ entry['created_at'] }}{% if entry['undone_at'] %} · undone{% endif %}
+            </p>
+          </div>
+          <div class="history-actions">
+            {% if entry['undone_at'] %}
+              <button class="btn-secondary"
+                      hx-post="/inventory/redo_action"
+                      hx-target="#inventory-table-wrapper"
+                      hx-swap="innerHTML"
+                      hx-include="#inventory-filters, #include-notion-toggle"
+                      hx-vals='{"history_id": "{{ entry["id"] }}"}'>
+                Redo
+              </button>
+            {% else %}
+              <button class="btn-secondary"
+                      hx-post="/inventory/undo_action"
+                      hx-target="#inventory-table-wrapper"
+                      hx-swap="innerHTML"
+                      hx-include="#inventory-filters, #include-notion-toggle"
+                      hx-vals='{"history_id": "{{ entry["id"] }}"}'>
+                Undo
+              </button>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    {% else %}
+      <li class="inventory-muted">No history yet.</li>
+    {% endif %}
+  </ul>
+</div>
