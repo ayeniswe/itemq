@@ -20,6 +20,7 @@ from services.barcode_rendering import (
 )
 from services.barcode_pdf import BarcodeSheetPDF
 from config import MEDIA_ROOT
+from routes.inventory import _build_filter_payload  # reuse datetime normalization
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -30,10 +31,58 @@ def _notion_enabled() -> bool:
     return bool(plugin and plugin.enabled)
 
 
+def _with_display_datetimes(filters: dict[str, str | None]) -> dict[str, str | None]:
+    """Inject local-time display copies for created_from/created_to based on tz_offset_minutes."""
+    enriched = dict(filters)
+    raw_from = filters.get("created_from")
+    raw_to = filters.get("created_to")
+    try:
+        offset = int(filters.get("tz_offset_minutes") or 0)
+    except Exception:
+        offset = 0
+
+    def _to_local(value: str | None) -> str | None:
+        if not value:
+            return None
+        try:
+            from datetime import datetime, timedelta
+
+            dt = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            local_dt = dt - timedelta(minutes=offset)
+            return local_dt.strftime("%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            return value.replace(" ", "T")
+
+    enriched["created_from_display"] = _to_local(raw_from)
+    enriched["created_to_display"] = _to_local(raw_to)
+    return enriched
+
+
 @router.get("/generate", response_class=HTMLResponse)
-async def generate(request: Request):
+async def generate(
+    request: Request,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    tz_offset_minutes: str | None = None,
+):
     include_notion = _notion_enabled()
-    filters = {}
+    filters = _build_filter_payload(
+        search=None,
+        search_case="insensitive",
+        group_name=None,
+        collection_name=None,
+        collection_category=None,
+        occasion=None,
+        season=None,
+        holiday=None,
+        emotion=None,
+        color=None,
+        event_name=None,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    filters = _with_display_datetimes(filters)
     items = list_inventory_with_labels_paginated(
         include_notion=include_notion,
         filters=filters,
@@ -100,7 +149,14 @@ def _build_barcode_preview(items, quantities: dict[int, int], fallback_format: s
 
 async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int, int], str]:
     form = await request.form()
-    item_ids = [int(value) for value in form.getlist("item_ids")]
+    item_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for value in form.getlist("item_ids"):
+        item_id = int(value)
+        if item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+        item_ids.append(item_id)
     quantities = {}
     for item_id in item_ids:
         raw_value = form.get(f"quantity_{item_id}", "0")
@@ -128,6 +184,7 @@ def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
 async def generate_inventory_list(
     request: Request,
     search: str | None = None,
+    search_case: str | None = "insensitive",
     group_name: str | None = None,
     collection_name: str | None = None,
     collection_category: str | None = None,
@@ -137,22 +194,30 @@ async def generate_inventory_list(
     emotion: str | None = None,
     color: str | None = None,
     event_name: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    tz_offset_minutes: str | None = None,
     page: int = 1,
 ):
     include_notion = _notion_enabled()
     page = max(page, 1)
-    filters = {
-        "search": search,
-        "group_name": group_name,
-        "collection_name": collection_name,
-        "collection_category": collection_category,
-        "occasion": occasion,
-        "season": season,
-        "holiday": holiday,
-        "emotion": emotion,
-        "color": color,
-        "event_name": event_name,
-    }
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    filters = _with_display_datetimes(filters)
     items = list_inventory_with_labels_paginated(
         include_notion=include_notion,
         filters=filters,

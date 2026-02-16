@@ -31,6 +31,7 @@
       <div id="barcode-inventory-list">
         {% include "partials/barcode_inventory_list.html" %}
       </div>
+      <div id="barcode-selection-state" hidden></div>
 
       <div id="barcode-status-message" class="barcode-status-message" aria-live="polite"></div>
 
@@ -103,6 +104,7 @@
         input.value = "0";
       });
     }
+    cacheSelectionFromVisibleRows();
     updateSelectAllLabel();
   });
 
@@ -123,8 +125,65 @@
     }
   });
 
-  let cachedSelection = new Set();
-  let cachedQuantities = new Map();
+  const selectedItemState = new Map();
+
+  const syncHiddenSelectionState = () => {
+    const stateContainer = document.getElementById("barcode-selection-state");
+    if (!stateContainer) return;
+    stateContainer.innerHTML = "";
+    Array.from(selectedItemState.entries())
+      .sort((left, right) => Number(left[0]) - Number(right[0]))
+      .forEach(([itemId, state]) => {
+        const itemInput = document.createElement("input");
+        itemInput.type = "hidden";
+        itemInput.name = "item_ids";
+        itemInput.value = String(itemId);
+        stateContainer.appendChild(itemInput);
+
+        const quantityInput = document.createElement("input");
+        quantityInput.type = "hidden";
+        quantityInput.name = `quantity_${itemId}`;
+        quantityInput.value = String(Math.max(Number(state.quantity || 0), 0));
+        stateContainer.appendChild(quantityInput);
+      });
+  };
+
+  const cacheSelectionFromVisibleRows = () => {
+    const rows = Array.from(document.querySelectorAll(".barcode-inventory-row"));
+    rows.forEach((row) => {
+      const checkbox = row.querySelector(".barcode-item-checkbox");
+      const quantityInput = row.querySelector(".barcode-quantity input");
+      if (!(checkbox instanceof HTMLInputElement) || !(quantityInput instanceof HTMLInputElement)) {
+        return;
+      }
+      const quantity = Math.max(Number(quantityInput.value || "0"), 0);
+      if (checkbox.checked) {
+        selectedItemState.set(checkbox.value, {
+          quantity,
+          hasLabel: checkbox.dataset.hasLabel === "true",
+        });
+      } else {
+        selectedItemState.delete(checkbox.value);
+      }
+    });
+    syncHiddenSelectionState();
+  };
+
+  const applySelectionToVisibleRows = (root = document) => {
+    const rows = Array.from(root.querySelectorAll(".barcode-inventory-row"));
+    rows.forEach((row) => {
+      const checkbox = row.querySelector(".barcode-item-checkbox");
+      const quantityInput = row.querySelector(".barcode-quantity input");
+      if (!(checkbox instanceof HTMLInputElement) || !(quantityInput instanceof HTMLInputElement)) {
+        return;
+      }
+      const selectedState = selectedItemState.get(checkbox.value);
+      checkbox.checked = Boolean(selectedState);
+      if (selectedState) {
+        quantityInput.value = String(selectedState.quantity);
+      }
+    });
+  };
 
   const preloadBarcodeImages = () => {
     const images = Array.from(document.querySelectorAll("#barcode-preview img"));
@@ -144,12 +203,15 @@
   };
 
   const getSelection = () => {
-    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
-    const selected = checkboxes.filter((checkbox) => checkbox.checked);
+    const selected = Array.from(selectedItemState.entries()).map(([itemId, state]) => ({
+      value: itemId,
+      hasLabel: state.hasLabel,
+      quantity: state.quantity,
+    }));
     const missing = selected.filter(
-      (checkbox) => checkbox.dataset.hasLabel !== "true"
+      (item) => !item.hasLabel
     );
-    return { selected, missing, total: checkboxes.length };
+    return { selected, missing };
   };
 
   const handlePrint = async () => {
@@ -165,13 +227,7 @@
       }
       return;
     }
-    const zeroQuantity = selected.some((checkbox) => {
-      const row = checkbox.closest(".barcode-inventory-row");
-      if (!row) return false;
-      const input = row.querySelector(".barcode-quantity input");
-      if (!input) return false;
-      return Number(input.value || "0") <= 0;
-    });
+    const zeroQuantity = selected.some((item) => Number(item.quantity || 0) <= 0);
     if (zeroQuantity) {
       if (statusMessage) {
         statusMessage.innerHTML = "<div class=\"barcode-warning\">Set quantities above zero before printing.</div>";
@@ -257,13 +313,7 @@
     const selection = getSelection();
     const { selected, missing } = selection;
     const hasSelection = selected.length > 0;
-    const hasZeroQuantity = selected.some((checkbox) => {
-      const row = checkbox.closest(".barcode-inventory-row");
-      if (!row) return false;
-      const input = row.querySelector(".barcode-quantity input");
-      if (!input) return false;
-      return Number(input.value || "0") <= 0;
-    });
+    const hasZeroQuantity = selected.some((item) => Number(item.quantity || 0) <= 0);
     generateButton.disabled = !hasSelection;
     printButton.disabled = !hasSelection;
     if (!hasSelection && statusMessage) {
@@ -290,7 +340,17 @@
     });
   };
 
+  const setBarcodeTzOffset = (root = document) => {
+    const tzInput = root.getElementById ? root.getElementById("barcode-tz-offset") : root.querySelector("#barcode-tz-offset");
+    if (tzInput) {
+      tzInput.value = String(new Date().getTimezoneOffset());
+    }
+  };
+
   document.addEventListener("DOMContentLoaded", () => {
+    setBarcodeTzOffset();
+    cacheSelectionFromVisibleRows();
+    applySelectionToVisibleRows();
     updateSelectAllLabel();
     updateActionState();
     setupPrintButton();
@@ -299,43 +359,18 @@
   document.body.addEventListener("htmx:beforeRequest", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id !== "generate-labels") return;
-    cachedSelection = new Set(
-      Array.from(document.querySelectorAll(".barcode-item-checkbox:checked")).map(
-        (checkbox) => checkbox.value
-      )
-    );
-    cachedQuantities = new Map(
-      Array.from(document.querySelectorAll(".barcode-quantity input")).map((input) => [
-        input.name,
-        input.value,
-      ])
-    );
+    if (target.id !== "barcode-selection" && target.id !== "generate-labels") return;
+    cacheSelectionFromVisibleRows();
   });
 
   document.body.addEventListener("htmx:afterSwap", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id === "barcode-inventory-list" && cachedSelection.size) {
-      const checkboxes = Array.from(
-        target.querySelectorAll(".barcode-item-checkbox")
-      );
-      checkboxes.forEach((checkbox) => {
-        checkbox.checked = cachedSelection.has(checkbox.value);
-      });
-      cachedSelection = new Set();
+    if (target.id === "barcode-inventory-list") {
+      applySelectionToVisibleRows(target);
+      setBarcodeTzOffset(target);
     }
-    if (target.id === "barcode-inventory-list" && cachedQuantities.size) {
-      const quantityInputs = Array.from(
-        target.querySelectorAll(".barcode-quantity input")
-      );
-      quantityInputs.forEach((input) => {
-        if (cachedQuantities.has(input.name)) {
-          input.value = cachedQuantities.get(input.name);
-        }
-      });
-      cachedQuantities = new Map();
-    }
+    syncHiddenSelectionState();
     updateSelectAllLabel();
     updateActionState();
     setupPrintButton();
@@ -344,14 +379,34 @@
   document.addEventListener("change", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (!target.classList.contains("barcode-item-checkbox")) return;
-    updateActionState();
+    if (target.classList.contains("barcode-item-checkbox")) {
+      const checkbox = target;
+      if (checkbox instanceof HTMLInputElement && checkbox.checked) {
+        const row = checkbox.closest(".barcode-inventory-row");
+        const quantityInput = row?.querySelector(".barcode-quantity input");
+        if (quantityInput instanceof HTMLInputElement && Number(quantityInput.value || "0") <= 0) {
+          quantityInput.value = "1";
+        }
+      }
+      cacheSelectionFromVisibleRows();
+      updateActionState();
+      return;
+    }
+    if (target.closest(".barcode-quantity")) {
+      cacheSelectionFromVisibleRows();
+      updateActionState();
+      return;
+    }
+    if (target.id === "select-all-items") {
+      cacheSelectionFromVisibleRows();
+    }
   });
 
   document.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (!target.closest(".barcode-quantity")) return;
+    cacheSelectionFromVisibleRows();
     updateActionState();
   });
 

@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi import UploadFile, File
 from pathlib import Path
 from pydantic import BaseModel, Field, validator
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from typing import Literal
 from PIL import Image
@@ -136,7 +136,34 @@ def _build_filter_payload(
     emotion: str | None = None,
     color: str | None = None,
     event_name: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    tz_offset_minutes: int | str | None = None,
 ) -> dict[str, str | None]:
+    def _normalize_datetime(value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            return None
+        normalized = normalized.replace("T", " ")
+        if len(normalized) == 16:
+            normalized = f"{normalized}:00"
+
+        # Convert from user's local time to UTC using their offset (minutes to add to local to reach UTC)
+        try:
+            parsed = datetime.strptime(normalized, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return normalized
+
+        try:
+            offset = int(tz_offset_minutes or 0)
+        except Exception:
+            offset = 0
+
+        utc_value = parsed + timedelta(minutes=offset)
+        return utc_value.strftime("%Y-%m-%d %H:%M:%S")
+
     return {
         "search": search,
         "search_case": search_case or "insensitive",
@@ -149,6 +176,9 @@ def _build_filter_payload(
         "emotion": emotion,
         "color": color,
         "event_name": event_name,
+        "created_from": _normalize_datetime(created_from),
+        "created_to": _normalize_datetime(created_to),
+        "tz_offset_minutes": str(tz_offset_minutes) if tz_offset_minutes is not None else None,
     }
 
 
@@ -214,6 +244,9 @@ async def inventory_table(
     emotion: str | None = None,
     color: str | None = None,
     event_name: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    tz_offset_minutes: str | None = None,
 ):
     page = max(page, 1)
     filters = _build_filter_payload(
@@ -228,6 +261,9 @@ async def inventory_table(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     return _render_inventory_table(request, include_notion, filters, page)
 
@@ -330,6 +366,9 @@ async def delete_inventory_item_row(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
 ):
     item_row = get_inventory_item(item_id)
     if item_row is not None:
@@ -352,6 +391,9 @@ async def delete_inventory_item_row(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=1)
     response.headers["HX-Trigger"] = "inventory:refreshHistory"
@@ -375,6 +417,9 @@ async def bulk_delete_inventory_items(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
 ):
     items = [dict(row) for row in get_inventory_items_by_ids(selected_ids)]
     for row in items:
@@ -397,6 +442,9 @@ async def bulk_delete_inventory_items(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=page)
     response.headers["HX-Trigger"] = "inventory:refreshHistory"
@@ -422,6 +470,9 @@ async def create_inventory_item(
     filter_emotion: str | None = Form(None),
     filter_color: str | None = Form(None),
     filter_event_name: str | None = Form(None),
+    filter_created_from: str | None = Form(None),
+    filter_created_to: str | None = Form(None),
+    filter_tz_offset_minutes: str | None = Form(None),
     name: str = Form(...),
     quantity: int = Form(0),
     group_name: str | None = Form(None),
@@ -478,6 +529,9 @@ async def create_inventory_item(
         emotion=filter_emotion,
         color=filter_color,
         event_name=filter_event_name,
+        created_from=filter_created_from,
+        created_to=filter_created_to,
+        tz_offset_minutes=filter_tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=page)
     response.headers["HX-Trigger"] = "inventory:refreshHistory"
@@ -566,6 +620,9 @@ async def update_inventory_item_image(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
 ):
     image_dir = MEDIA_ROOT / "inventory"
 
@@ -610,6 +667,9 @@ async def update_inventory_item_image(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=page)
     response.headers["HX-Trigger"] = "inventory:refreshHistory"
@@ -635,6 +695,9 @@ async def update_inventory_item_details(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
     event_date: str | None = Form(None),
     event_location: str | None = Form(None),
     event_notes: str | None = Form(None),
@@ -683,6 +746,9 @@ async def update_inventory_item_details(
             emotion=emotion,
             color=color,
             event_name=event_name,
+            created_from=created_from,
+            created_to=created_to,
+            tz_offset_minutes=tz_offset_minutes,
         )
         response = _render_inventory_table(request, include_notion, filters, page=page)
         response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshHistory"
@@ -737,6 +803,9 @@ async def undo_history_action(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
 ):
     # stack: latest pending action
     if history_id is not None:
@@ -793,6 +862,9 @@ async def undo_history_action(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=page)
     response.headers["HX-Trigger"] = "inventory:refreshHistory,inventory:refreshTable"
@@ -817,6 +889,9 @@ async def redo_history_action(
     emotion: str | None = Form(None),
     color: str | None = Form(None),
     event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
 ):
     # stack: latest undone entry
     if history_id is not None:
@@ -865,6 +940,9 @@ async def redo_history_action(
         emotion=emotion,
         color=color,
         event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
     )
     response = _render_inventory_table(request, include_notion, filters, page=page)
     response.headers["HX-Trigger"] = "inventory:refreshHistory,inventory:refreshTable"

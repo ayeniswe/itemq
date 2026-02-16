@@ -387,6 +387,16 @@ class SQLiteInventoryDB:
                 conditions.append(f"{table_alias}.{column} = ?")
                 params.append(value)
 
+        created_from = (filters.get("created_from") or "").strip()
+        if created_from:
+            conditions.append(f"datetime({table_alias}.created_at) >= datetime(?)")
+            params.append(created_from)
+
+        created_to = (filters.get("created_to") or "").strip()
+        if created_to:
+            conditions.append(f"datetime({table_alias}.created_at) <= datetime(?)")
+            params.append(created_to)
+
         where_clause = ""
         if conditions:
             where_clause = " WHERE " + " AND ".join(conditions)

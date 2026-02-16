@@ -61,7 +61,7 @@
           hx-target="#inventory-table-wrapper"
           hx-swap="innerHTML"
           hx-include="[name='include_notion'], #inventory-filters, #inventory-page"
-          hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || ""}'>
+          hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || "", filter_created_from: document.querySelector(`#inventory-filters [name="created_from"]`)?.value || "", filter_created_to: document.querySelector(`#inventory-filters [name="created_to"]`)?.value || "", filter_tz_offset_minutes: document.querySelector(`#inventory-filters [name="tz_offset_minutes"]`)?.value || new Date().getTimezoneOffset()}'>
 
       <div class="inventory-add-grid">
         <div class="field">
@@ -173,6 +173,7 @@
   <div class="inventory-table-wrapper">
     <form id="inventory-filters" class="inventory-search-row">
       <input id="inventory-page" type="hidden" name="page" value="1">
+      <input id="inventory-tz-offset" type="hidden" name="tz_offset_minutes" value="">
       <div class="inventory-search" role="search">
         <span class="inventory-search-icon" aria-hidden="true">🔎</span>
         <input id="inventory-search"
@@ -326,6 +327,26 @@
             {% endfor %}
           </select>
         </label>
+        <label>
+          Created from
+          <input type="datetime-local"
+                 name="created_from"
+                 hx-get="/inventory/table"
+                 hx-trigger="change"
+                 hx-target="#inventory-table-wrapper"
+                 hx-swap="innerHTML"
+                 hx-include="#inventory-filters, #include-notion-toggle">
+        </label>
+        <label>
+          Created to
+          <input type="datetime-local"
+                 name="created_to"
+                 hx-get="/inventory/table"
+                 hx-trigger="change"
+                 hx-target="#inventory-table-wrapper"
+                 hx-swap="innerHTML"
+                 hx-include="#inventory-filters, #include-notion-toggle">
+        </label>
       </div>
       <span id="inventory-search-count" class="inventory-muted">Showing filtered inventory</span>
     </form>
@@ -474,6 +495,11 @@
     const pageInput = document.getElementById("inventory-page");
 
     if (!searchInput || !countLabel) return;
+    // Capture user timezone offset (minutes to add to local to reach UTC) so date filters compare correctly
+    const tzInput = document.getElementById("inventory-tz-offset");
+    if (tzInput) {
+      tzInput.value = String(new Date().getTimezoneOffset());
+    }
 
     const updateCount = () => {
       const rows = Array.from(document.querySelectorAll("#inventory-table .inventory-row"));

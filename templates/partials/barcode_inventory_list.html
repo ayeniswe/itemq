@@ -10,6 +10,7 @@
   </div>
 
   <div class="barcode-filters">
+    <input type="hidden" id="barcode-tz-offset" name="tz_offset_minutes" value="{{ filters.tz_offset_minutes or '' }}">
     <label>
       Search
       <input type="search"
@@ -148,6 +149,28 @@
           <option value="{{ value }}" {% if filters.event_name == value %}selected{% endif %}>{{ value }}</option>
         {% endfor %}
       </select>
+    </label>
+    <label>
+      Created from
+      <input type="datetime-local"
+             name="created_from"
+             value="{{ filters.created_from_display or '' }}"
+             hx-get="/generate/inventory_list"
+             hx-trigger="change"
+             hx-target="#barcode-inventory-list"
+             hx-swap="innerHTML"
+             hx-include="#barcode-selection">
+    </label>
+    <label>
+      Created to
+      <input type="datetime-local"
+             name="created_to"
+             value="{{ filters.created_to_display or '' }}"
+             hx-get="/generate/inventory_list"
+             hx-trigger="change"
+             hx-target="#barcode-inventory-list"
+             hx-swap="innerHTML"
+             hx-include="#barcode-selection">
     </label>
   </div>
 
