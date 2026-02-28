@@ -1,7 +1,7 @@
 from io import BytesIO
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from db import (
@@ -11,6 +11,7 @@ from db import (
     count_inventory_with_labels,
     get_inventory_filter_options,
     upsert_barcode_labels,
+    list_inventory_label_state,
 )
 from model import Plugin
 from services.barcode_rendering import (
@@ -240,6 +241,54 @@ async def generate_inventory_list(
     )
 
 
+@router.get("/generate/selection_state")
+async def generate_selection_state(
+    request: Request,
+    search: str | None = None,
+    search_case: str | None = "insensitive",
+    group_name: str | None = None,
+    collection_name: str | None = None,
+    collection_category: str | None = None,
+    occasion: str | None = None,
+    season: str | None = None,
+    holiday: str | None = None,
+    emotion: str | None = None,
+    color: str | None = None,
+    event_name: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    tz_offset_minutes: str | None = None,
+):
+    include_notion = _notion_enabled()
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    rows = list_inventory_label_state(include_notion=include_notion, filters=filters)
+    total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
+    items = [
+        {
+            "id": row["id"],
+            "has_label": bool(row["label_path"]),
+            "quantity": int(row["label_quantity"] or 0),
+        }
+        for row in rows
+    ]
+    return JSONResponse({"items": items, "total": total})
+
+
 @router.post("/generate/preview", response_class=HTMLResponse)
 async def generate_preview(
     request: Request,
@@ -269,9 +318,15 @@ async def generate_create(
     for item in items:
         existing_format = (item["label_format"] or "").lower()
         existing_path = item["label_path"]
+        existing_file = MEDIA_ROOT / existing_path if existing_path else None
 
-        if existing_path and existing_format == normalized_format:
-            label_path = existing_path  # reuse existing label image
+        if (
+            existing_path
+            and existing_format == normalized_format
+            and existing_file
+            and existing_file.exists()
+        ):
+            label_path = existing_path  # reuse existing label image that actually exists
         else:
             filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
             label_path = f"barcodes/{filename}"
@@ -299,16 +354,6 @@ async def generate_create(
     )
     total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
     filter_options = get_inventory_filter_options(include_notion=include_notion)
-    banner = None
-    if item_ids:
-        banner = {
-            "title": "Labels generated",
-            "subtitle": (
-                f"Saved {sum(quantities.values())} label"
-                f"{'' if sum(quantities.values()) == 1 else 's'} as {normalized_format.upper()}."
-            ),
-        }
-
     return templates.TemplateResponse(
         "partials/barcode_generate_response.html",
         {
@@ -317,7 +362,7 @@ async def generate_create(
             "selected_format": _format_summary(barcodes),
             "selection_count": sum(quantities.values()),
             "items": inventory_items,
-            "banner": banner,
+            "banner": None,
             "filters": filters,
             "filter_options": filter_options,
             "page": 1,
@@ -333,16 +378,43 @@ async def generate_print(
 ):
     item_ids, quantities, normalized_format = await _parse_generation_form(request)
     items = get_inventory_items_with_labels_by_ids(item_ids)
-    missing = [item for item in items if not item["label_path"]]
+    missing = []
+    for item in items:
+        label_path = item["label_path"]
+        if not label_path:
+            missing.append(item)
+            continue
+        file_path = MEDIA_ROOT / label_path
+        if not file_path.exists():
+            missing.append(item)
     if missing:
-        return templates.TemplateResponse(
-            "partials/barcode_print_error.html",
-            {
-                "request": request,
-                "message": "Generate labels for the selected items, then try printing again.",
-            },
-            status_code=400,
-        )
+        # Attempt to regenerate missing labels on the fly
+        regenerated: list[tuple[int, str, str, str, int]] = []
+        output_dir = MEDIA_ROOT / "barcodes"
+        for item in missing:
+            filename = save_barcode_image(item["barcode"], normalized_format, output_dir)
+            label_path = f"barcodes/{filename}"
+            regenerated.append(
+                (
+                    item["id"],
+                    item["barcode"],
+                    normalized_format,
+                    label_path,
+                    quantities.get(item["id"], 1),
+                )
+            )
+        if regenerated:
+            upsert_barcode_labels(regenerated)
+            items = get_inventory_items_with_labels_by_ids(item_ids)
+        else:
+            return templates.TemplateResponse(
+                "partials/barcode_print_error.html",
+                {
+                    "request": request,
+                    "message": "Generate labels for the selected items, then try printing again.",
+                },
+                status_code=400,
+            )
     barcodes = _build_barcode_preview(items, quantities, normalized_format)
     print_barcodes = _expand_barcodes_for_print(barcodes)
     label_paths = [MEDIA_ROOT / barcode["label_path"] for barcode in print_barcodes]

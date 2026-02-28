@@ -23,7 +23,8 @@ SUPPORTED_FORMATS: dict[str, BarcodeFormat] = {
     "qr": BarcodeFormat(key="qr", label="QR"),
 }
 
-DEFAULT_FORMAT = "code128"
+# Default to QR to improve scannability from mobile devices.
+DEFAULT_FORMAT = "qr"
 
 
 def normalize_format(requested: str | None) -> str:

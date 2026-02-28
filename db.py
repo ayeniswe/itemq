@@ -651,6 +651,30 @@ class SQLiteInventoryDB:
         )
         return self.conn.execute(query, (*params, limit, offset)).fetchall()
 
+    def list_inventory_label_state(
+        self,
+        include_notion: bool = False,
+        filters: dict[str, str | None] | None = None,
+    ):
+        """
+        Lightweight listing that returns only selection-relevant fields.
+        """
+        filters = filters or {}
+        where_clause, params = self._build_inventory_filters(
+            include_notion, filters, table_alias="inventory"
+        )
+        query = f"""
+            SELECT
+                inventory.id AS id,
+                barcode_labels.image_path AS label_path,
+                barcode_labels.quantity AS label_quantity
+            FROM inventory
+            LEFT JOIN barcode_labels
+                ON barcode_labels.inventory_id = inventory.id
+            {where_clause}
+        """
+        return self.conn.execute(query, params).fetchall()
+
     def count_inventory_with_labels(
         self,
         include_notion: bool,
@@ -1186,6 +1210,16 @@ def list_inventory_with_labels_paginated(
         filters or {},
         limit,
         offset,
+    )
+
+
+def list_inventory_label_state(
+    include_notion: bool = False,
+    filters: dict[str, str | None] | None = None,
+):
+    return get_db().list_inventory_label_state(
+        include_notion,
+        filters or {},
     )
 
 

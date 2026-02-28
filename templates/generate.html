@@ -74,39 +74,38 @@
 </div>
 
 <script>
+  const allowedFilterFields = new Set([
+    "search",
+    "search_case",
+    "group_name",
+    "collection_name",
+    "collection_category",
+    "occasion",
+    "season",
+    "holiday",
+    "emotion",
+    "color",
+    "event_name",
+    "created_from",
+    "created_to",
+    "tz_offset_minutes",
+  ]);
+
+  const selectedItemState = new Map();
+
+  const getTotalItems = () => {
+    const totalInput = document.getElementById("barcode-total-items");
+    return totalInput ? Number(totalInput.value || "0") : 0;
+  };
+
   const updateSelectAllLabel = () => {
     const selectAllButton = document.getElementById("select-all-items");
     if (!selectAllButton) return;
-    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
-    const hasUnchecked = checkboxes.some((checkbox) => !checkbox.checked);
-    selectAllButton.textContent = hasUnchecked ? "Select all" : "Clear all";
-    selectAllButton.disabled = checkboxes.length === 0;
+    const totalItems = getTotalItems();
+    const allSelected = totalItems > 0 && selectedItemState.size >= totalItems;
+    selectAllButton.textContent = allSelected ? "Clear all" : "Select all";
+    selectAllButton.disabled = totalItems === 0;
   };
-
-  document.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (target.id !== "select-all-items") return;
-    const checkboxes = Array.from(document.querySelectorAll(".barcode-item-checkbox"));
-    const shouldSelect = checkboxes.some((checkbox) => !checkbox.checked);
-    checkboxes.forEach((checkbox) => {
-      checkbox.checked = shouldSelect;
-      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-    if (shouldSelect) {
-      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
-        if (input.value === "0" || input.value === "") {
-          input.value = "1";
-        }
-      });
-    } else {
-      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
-        input.value = "0";
-      });
-    }
-    cacheSelectionFromVisibleRows();
-    updateSelectAllLabel();
-  });
 
   document.addEventListener("change", (event) => {
     const target = event.target;
@@ -125,7 +124,19 @@
     }
   });
 
-  const selectedItemState = new Map();
+  const buildFilterParams = (form) => {
+    const params = new URLSearchParams();
+    allowedFilterFields.forEach((field) => {
+      const element = form.elements.namedItem(field);
+      if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement) {
+        const value = element.value ?? "";
+        if (value !== "") {
+          params.append(field, value);
+        }
+      }
+    });
+    return params;
+  };
 
   const syncHiddenSelectionState = () => {
     const stateContainer = document.getElementById("barcode-selection-state");
@@ -184,6 +195,68 @@
       }
     });
   };
+
+  const selectAllAcrossPages = async () => {
+    const form = document.getElementById("barcode-selection");
+    const selectAllButton = document.getElementById("select-all-items");
+    if (!form) return;
+    const params = buildFilterParams(form);
+    if (selectAllButton) {
+      selectAllButton.disabled = true;
+      selectAllButton.textContent = "Selecting...";
+    }
+    try {
+      const response = await fetch(`/generate/selection_state?${params.toString()}`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      const items = payload.items || [];
+      const total = Number(payload.total || items.length || 0);
+      selectedItemState.clear();
+      items.forEach((item) => {
+        const quantity = Math.max(Number(item.quantity || 0), 1);
+        selectedItemState.set(String(item.id), {
+          quantity,
+          hasLabel: Boolean(item.has_label),
+        });
+      });
+      const totalInput = document.getElementById("barcode-total-items");
+      if (totalInput) {
+        totalInput.value = String(total);
+      }
+      applySelectionToVisibleRows();
+      syncHiddenSelectionState();
+      updateActionState();
+    } finally {
+      if (selectAllButton) {
+        selectAllButton.disabled = false;
+      }
+      updateSelectAllLabel();
+    }
+  };
+
+  document.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.id !== "select-all-items") return;
+    event.preventDefault();
+    const totalItems = getTotalItems();
+    const allSelected = totalItems > 0 && selectedItemState.size >= totalItems;
+    if (allSelected) {
+      selectedItemState.clear();
+      document.querySelectorAll(".barcode-item-checkbox").forEach((checkbox) => {
+        checkbox.checked = false;
+        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
+        input.value = "0";
+      });
+      syncHiddenSelectionState();
+      updateActionState();
+      updateSelectAllLabel();
+      return;
+    }
+    await selectAllAcrossPages();
+  });
 
   const preloadBarcodeImages = () => {
     const images = Array.from(document.querySelectorAll("#barcode-preview img"));
@@ -359,8 +432,16 @@
   document.body.addEventListener("htmx:beforeRequest", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id !== "barcode-selection" && target.id !== "generate-labels") return;
-    cacheSelectionFromVisibleRows();
+    if (target.id === "barcode-selection" || target.id === "generate-labels") {
+      cacheSelectionFromVisibleRows();
+      return;
+    }
+    if (target.closest(".barcode-filters")) {
+      selectedItemState.clear();
+      syncHiddenSelectionState();
+      updateActionState();
+      updateSelectAllLabel();
+    }
   });
 
   document.body.addEventListener("htmx:afterSwap", (event) => {
@@ -369,6 +450,12 @@
     if (target.id === "barcode-inventory-list") {
       applySelectionToVisibleRows(target);
       setBarcodeTzOffset(target);
+    }
+    const totalInput = (target instanceof HTMLElement && target.querySelector)
+      ? target.querySelector("#barcode-total-items")
+      : document.getElementById("barcode-total-items");
+    if (totalInput instanceof HTMLInputElement) {
+      totalInput.value = totalInput.value || "0";
     }
     syncHiddenSelectionState();
     updateSelectAllLabel();
@@ -423,6 +510,27 @@
     },
     { passive: false }
   );
+
+  const markSelectionAsGenerated = () => {
+    selectedItemState.forEach((state, key) => {
+      selectedItemState.set(key, {
+        ...state,
+        hasLabel: true,
+        quantity: Math.max(Number(state.quantity || 0), 1),
+      });
+    });
+  };
+
+  document.body.addEventListener("htmx:afterRequest", (event) => {
+    const path = event.detail?.pathInfo?.requestPath;
+    const status = event.detail?.xhr?.status;
+    if (path === "/generate/create" && status && status < 400) {
+      markSelectionAsGenerated();
+      syncHiddenSelectionState();
+      updateActionState();
+      updateSelectAllLabel();
+    }
+  });
 </script>
 
 {% endblock %}
