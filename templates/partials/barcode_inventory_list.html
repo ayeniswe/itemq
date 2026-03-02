@@ -26,6 +26,19 @@
              hx-include="#barcode-selection">
     </label>
     <label>
+      Image
+      <select name="image_status"
+              hx-get="/generate/inventory_list"
+              hx-trigger="change"
+              hx-target="#barcode-inventory-list"
+              hx-swap="innerHTML"
+              hx-include="#barcode-selection">
+        <option value="">All</option>
+        <option value="missing" {% if filters.image_status == "missing" %}selected{% endif %}>Missing / default</option>
+        <option value="present" {% if filters.image_status == "present" %}selected{% endif %}>Has image</option>
+      </select>
+    </label>
+    <label>
       Group name
       <select name="group_name"
               hx-get="/generate/inventory_list"

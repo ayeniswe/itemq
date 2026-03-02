@@ -186,6 +186,7 @@ async def generate_inventory_list(
     request: Request,
     search: str | None = None,
     search_case: str | None = "insensitive",
+    image_status: str | None = None,
     group_name: str | None = None,
     collection_name: str | None = None,
     collection_category: str | None = None,
@@ -205,6 +206,7 @@ async def generate_inventory_list(
     filters = _build_filter_payload(
         search=search,
         search_case=search_case,
+        image_status=image_status,
         group_name=group_name,
         collection_name=collection_name,
         collection_category=collection_category,
@@ -246,6 +248,7 @@ async def generate_selection_state(
     request: Request,
     search: str | None = None,
     search_case: str | None = "insensitive",
+    image_status: str | None = None,
     group_name: str | None = None,
     collection_name: str | None = None,
     collection_category: str | None = None,
@@ -263,6 +266,7 @@ async def generate_selection_state(
     filters = _build_filter_payload(
         search=search,
         search_case=search_case,
+        image_status=image_status,
         group_name=group_name,
         collection_name=collection_name,
         collection_category=collection_category,
