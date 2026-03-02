@@ -1,6 +1,8 @@
 import sqlite3
 from pathlib import Path
 from typing import Literal, Protocol, Iterable, Optional
+
+from config import MEDIA_ROOT
 import json
 
 DEFAULT_DB_NAME = "itemq.db"
@@ -180,6 +182,16 @@ class SQLiteInventoryDB:
     def connect(self):
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        # Expose a tiny helper to check if an image file actually exists on disk
+        self.conn.create_function("file_exists", 1, self._file_exists)
+
+    def _file_exists(self, image_path: Optional[str]) -> int:
+        if not image_path:
+            return 0
+        path = Path(image_path)
+        if not path.is_absolute():
+            path = MEDIA_ROOT / path
+        return 1 if path.exists() else 0
 
     def close(self):
         if self.conn:
@@ -396,6 +408,27 @@ class SQLiteInventoryDB:
         if created_to:
             conditions.append(f"datetime({table_alias}.created_at) <= datetime(?)")
             params.append(created_to)
+
+        image_status = (filters.get("image_status") or "").strip().lower()
+        if image_status == "missing":
+            # Missing explicit path, empty string, file not present, or known placeholder filenames
+            conditions.append(
+                "("
+                f" {table_alias}.image_path IS NULL OR "
+                f" TRIM({table_alias}.image_path) = '' OR "
+                f" file_exists({table_alias}.image_path) = 0 OR "
+                f" LOWER({table_alias}.image_path) LIKE '%default%' OR "
+                f" LOWER({table_alias}.image_path) LIKE '%placeholder%'"
+                ")"
+            )
+        elif image_status == "present":
+            conditions.append(
+                "("
+                f" {table_alias}.image_path IS NOT NULL AND "
+                f" TRIM({table_alias}.image_path) <> '' AND "
+                f" file_exists({table_alias}.image_path) = 1"
+                ")"
+            )
 
         where_clause = ""
         if conditions:
