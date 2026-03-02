@@ -676,7 +676,9 @@ main {
 }
 
 .inventory-details-cell {
-  min-width: 240px;
+  min-width: 260px;
+  width: auto;
+  white-space: normal;
 }
 
 .inventory-input {
@@ -788,10 +790,52 @@ main {
 
 .inventory-details {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(110px, 1fr) minmax(0, 1.5fr);
   gap: 0.25rem 0.5rem;
   font-size: 0.75rem;
   color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.inventory-details-row {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  width: 100%;
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.inventory-details-row summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+.inventory-details-row[open] summary {
+  margin-bottom: 0.4rem;
+}
+
+.inventory-details-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.inventory-details-row summary::after {
+  content: "▸";
+  font-size: 0.75rem;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+
+.inventory-details-row[open] summary::after {
+  transform: rotate(90deg);
 }
 
 .inventory-detail-label {
@@ -883,6 +927,7 @@ main {
 .inventory-duplicates-card {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
+  overflow-x: auto; /* keep the block inside the page on narrow viewports */
 }
 
 .inventory-history-card {
@@ -953,6 +998,8 @@ main {
 
 .inventory-duplicates {
   font-size: 0.82rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .inventory-duplicates-toggle {
@@ -989,6 +1036,7 @@ main {
 
 .inventory-duplicate-list {
   padding: 0 0.6rem 0.6rem;
+  overflow-x: auto;
 }
 
 .inventory-duplicate-group {
@@ -1005,6 +1053,7 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.5rem;
+  width: 100%;
 }
 
 .inventory-duplicate-pair {
@@ -1030,6 +1079,18 @@ main {
 .inventory-duplicate-distance {
   font-size: 0.75rem;
   color: #64748b;
+}
+
+@media (max-width: 800px) {
+  .inventory-duplicate-pair {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 0.35rem;
+  }
+
+  .inventory-duplicate-distance {
+    justify-self: start;
+  }
 }
 
 .inventory-delete-btn {

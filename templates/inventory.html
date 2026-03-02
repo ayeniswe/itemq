@@ -60,7 +60,7 @@
           hx-target="#inventory-table-wrapper"
           hx-swap="innerHTML"
           hx-include="[name='include_notion'], #inventory-filters, #inventory-page"
-          hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || "", filter_created_from: document.querySelector(`#inventory-filters [name="created_from"]`)?.value || "", filter_created_to: document.querySelector(`#inventory-filters [name="created_to"]`)?.value || "", filter_tz_offset_minutes: document.querySelector(`#inventory-filters [name="tz_offset_minutes"]`)?.value || new Date().getTimezoneOffset()}'>
+          hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_image_status: document.querySelector(`#inventory-filters [name="image_status"]`)?.value || "", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || "", filter_created_from: document.querySelector(`#inventory-filters [name="created_from"]`)?.value || "", filter_created_to: document.querySelector(`#inventory-filters [name="created_to"]`)?.value || "", filter_tz_offset_minutes: document.querySelector(`#inventory-filters [name="tz_offset_minutes"]`)?.value || new Date().getTimezoneOffset()}'>
 
       <div class="inventory-add-grid">
         <div class="field">
@@ -177,6 +177,19 @@
         </select>
       </label>
       <div class="inventory-filter-row">
+        <label>
+          Image
+          <select name="image_status"
+                  hx-get="/inventory/table"
+                  hx-trigger="change"
+                  hx-target="#inventory-table-wrapper"
+                  hx-swap="innerHTML"
+                  hx-include="#inventory-filters, #include-notion-toggle">
+            <option value="">All</option>
+            <option value="missing">Missing / default</option>
+            <option value="present">Has image</option>
+          </select>
+        </label>
         <label>
           Group
           <select name="group_name"
