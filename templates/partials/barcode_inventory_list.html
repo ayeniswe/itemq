@@ -10,10 +10,10 @@
     </div>
   </div>
 
-  <div class="barcode-filters">
+  <div class="barcode-filters" role="group" aria-label="Inventory filters">
     <input type="hidden" id="barcode-tz-offset" name="tz_offset_minutes" value="{{ filters.tz_offset_minutes or '' }}">
-    <label>
-      Search
+    <label class="barcode-filter barcode-filter-search">
+      <span class="barcode-filter-label">Search</span>
       <input type="search"
              id="barcode-inventory-search"
              name="search"
@@ -25,8 +25,8 @@
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
     </label>
-    <label>
-      Image
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Image</span>
       <select name="image_status"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -38,8 +38,8 @@
         <option value="present" {% if filters.image_status == "present" %}selected{% endif %}>Has image</option>
       </select>
     </label>
-    <label>
-      Group name
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Group</span>
       <select name="group_name"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -52,8 +52,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Collection
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Collection</span>
       <select name="collection_name"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -66,8 +66,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Collection category
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Category</span>
       <select name="collection_category"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -80,8 +80,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Occasion
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Occasion</span>
       <select name="occasion"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -94,8 +94,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Season
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Season</span>
       <select name="season"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -108,8 +108,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Holiday
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Holiday</span>
       <select name="holiday"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -122,8 +122,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Emotion
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Emotion</span>
       <select name="emotion"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -136,8 +136,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Color
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Color</span>
       <select name="color"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -150,8 +150,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Event
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">Event</span>
       <select name="event_name"
               hx-get="/generate/inventory_list"
               hx-trigger="change"
@@ -164,8 +164,8 @@
         {% endfor %}
       </select>
     </label>
-    <label>
-      Created from
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">From</span>
       <input type="datetime-local"
              name="created_from"
              value="{{ filters.created_from_display or '' }}"
@@ -175,8 +175,8 @@
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
     </label>
-    <label>
-      Created to
+    <label class="barcode-filter">
+      <span class="barcode-filter-label">To</span>
       <input type="datetime-local"
              name="created_to"
              value="{{ filters.created_to_display or '' }}"
@@ -186,6 +186,15 @@
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
     </label>
+    <div class="barcode-filter-actions">
+      <button type="button"
+              class="btn-secondary btn-filter-reset"
+              hx-get="/generate/inventory_list"
+              hx-target="#barcode-inventory-list"
+              hx-swap="innerHTML">
+        Clear filters
+      </button>
+    </div>
   </div>
 
   {% if items %}

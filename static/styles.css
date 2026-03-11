@@ -1344,10 +1344,7 @@ main {
    ========================= */
 
 .generate-header {
-  margin-bottom: 1.5rem;
-}
-
-.generate-header {
+  margin-bottom: 0.85rem;
   flex-shrink: 0;
 }
 
@@ -1366,24 +1363,21 @@ main {
 
 .generate-grid-wide {
   display: grid;
-  grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 1fr);
-  gap: 1rem;
-
-  flex: 1;          /* ⬅️ fill remaining main height */
-  min-height: 0;    /* ⬅️ critical for shrink */
+  grid-template-columns: minmax(340px, 1fr) minmax(380px, 1.4fr);
+  gap: 0.9rem;
+  flex: 1;
+  min-height: 0;
   align-items: stretch;
 }
 
 .generate-card {
   background: #ffffff;
   border-radius: 14px;
-  padding: 1.25rem;
+  padding: 1rem;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-
   display: flex;
   flex-direction: column;
-
-  min-height: 0;    /* ⬅️ allow vertical shrink */
+  min-height: 0;
 }
 
 .generate-card h3 {
@@ -1393,7 +1387,7 @@ main {
 }
 
 .generate-form {
-  margin-top: 1rem;
+  margin-top: 0.6rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -1469,7 +1463,7 @@ main {
 
 /* Results */
 .results-card {
-  margin-top: 1.5rem;
+  margin-top: 0.5rem;
 }
 
 /* Barcode selection */
@@ -1502,27 +1496,55 @@ main {
 
 .barcode-filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.6rem;
+  padding: 0.45rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
   flex-shrink: 0;
 }
 
-.barcode-filters label {
-  font-size: 0.7rem;
-  color: #475569;
+.barcode-filter {
+  grid-column: span 2;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
 }
 
-.barcode-filters input,
-.barcode-filters select {
-  padding: 0.4rem 0.55rem;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+.barcode-filter-search {
+  grid-column: span 4;
+}
+
+.barcode-filter-label {
+  font-size: 0.66rem;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.barcode-filter input,
+.barcode-filter select {
+  padding: 0.36rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #dbe3ee;
   background: #ffffff;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+}
+
+.barcode-filter-actions {
+  grid-column: span 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.btn-filter-reset {
+  margin-top: 0;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.72rem;
 }
 
 .barcode-inventory-actions {
@@ -1741,7 +1763,7 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.75rem;
 
-  grid-auto-rows: minmax(220px, 1fr); /* ⬅️ THIS FIX */
+  grid-auto-rows: minmax(200px, 1fr);
 
   flex: 1;          /* fill remaining preview height */
   min-height: 0;
@@ -2324,4 +2346,41 @@ main {
 .barcode-card-header,
 .barcode-card-footer {
   min-width: 0;
+}
+
+
+@media (max-width: 1400px) {
+  .barcode-filter-search {
+    grid-column: span 6;
+  }
+
+  .barcode-filter {
+    grid-column: span 3;
+  }
+
+  .barcode-filter-actions {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 1100px) {
+  .generate-grid-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .barcode-filter-search {
+    grid-column: span 12;
+  }
+
+  .barcode-filter,
+  .barcode-filter-actions {
+    grid-column: span 4;
+  }
+}
+
+@media (max-width: 760px) {
+  .barcode-filter,
+  .barcode-filter-actions {
+    grid-column: span 6;
+  }
 }

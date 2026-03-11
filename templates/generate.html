@@ -2,13 +2,11 @@
 
 <div class="generate-header">
   <h1>Generate Barcodes</h1>
-  <p class="subtitle">Select inventory items, generate labels, and print when ready.</p>
 </div>
 
 <div class="generate-grid generate-grid-wide">
   <div class="generate-card">
     <h3>Inventory Selection</h3>
-    <p class="card-hint">Choose items and a barcode style to print. Quantities default to 0 so you stay in control.</p>
 
     <form id="barcode-selection"
           class="generate-form barcode-selection-form"
@@ -66,7 +64,6 @@
 
   <div class="generate-card">
     <h3>Preview</h3>
-    <p class="card-hint">Preview barcode output before printing.</p>
     <div id="barcode-preview" class="results-card">
       {% include "partials/barcode_preview.html" %}
     </div>
@@ -433,13 +430,16 @@
   document.body.addEventListener("htmx:beforeRequest", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id === "barcode-selection" || target.id === "generate-labels") {
+
+    // Persist current visible selections before *any* inventory list refresh
+    // (filter changes, pagination, explicit form submit, generate action, etc.).
+    if (
+      target.id === "barcode-selection"
+      || target.id === "generate-labels"
+      || target.closest(".barcode-filters")
+      || target.closest(".barcode-pagination")
+    ) {
       cacheSelectionFromVisibleRows();
-      return;
-    }
-    if (target.closest(".barcode-filters")) {
-      selectedItemState.clear();
-      syncHiddenSelectionState();
       updateActionState();
       updateSelectAllLabel();
     }
