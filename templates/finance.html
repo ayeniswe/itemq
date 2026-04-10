@@ -1,0 +1,155 @@
+{% block content %}
+<div class="dashboard-header">
+  <h1>Invoice & Expense Management</h1>
+  <p class="subtitle">Track craft sales, invoice customers, and monitor cash flow in one workspace.</p>
+</div>
+
+<div class="cards">
+  <div class="card card-primary">
+    <div class="card-icon">🧾</div>
+    <div class="card-content">
+      <h3>Total Invoiced</h3>
+      <p class="card-metric">${{ '%.2f'|format(metrics.total_invoiced) }}</p>
+      <span class="card-hint">All invoice line items</span>
+    </div>
+  </div>
+  <div class="card card-secondary">
+    <div class="card-icon">💵</div>
+    <div class="card-content">
+      <h3>Total Received</h3>
+      <p class="card-metric">${{ '%.2f'|format(metrics.total_received) }}</p>
+      <span class="card-hint">Payments collected</span>
+    </div>
+  </div>
+  <div class="card card-warning">
+    <div class="card-icon">💸</div>
+    <div class="card-content">
+      <h3>Total Expenses</h3>
+      <p class="card-metric">${{ '%.2f'|format(metrics.total_expenses) }}</p>
+      <span class="card-hint">Material, booth, and operating costs</span>
+    </div>
+  </div>
+</div>
+
+<div class="inventory-layout">
+  <section class="inventory-panel">
+    <h3>Add Customer</h3>
+    <form method="post" action="/finance/customers" class="inventory-form">
+      <input name="name" placeholder="Customer name" required>
+      <input name="email" type="email" placeholder="Email">
+      <input name="phone" placeholder="Phone">
+      <textarea name="notes" placeholder="Notes"></textarea>
+      <button class="btn btn-primary" type="submit">Save Customer</button>
+    </form>
+
+    <h3>Create Invoice</h3>
+    <form method="post" action="/finance/invoices" class="inventory-form">
+      <input name="invoice_number" placeholder="Invoice # (ex: INV-2026-001)" required>
+      <select name="customer_id">
+        <option value="">Walk-in / no customer profile</option>
+        {% for customer in customers %}
+        <option value="{{ customer.id }}">{{ customer.name }}</option>
+        {% endfor %}
+      </select>
+      <label>Issue Date</label>
+      <input name="issue_date" type="date" value="{{ today }}" required>
+      <label>Due Date</label>
+      <input name="due_date" type="date" value="{{ today }}">
+      <textarea name="notes" placeholder="Invoice notes"></textarea>
+      <button class="btn btn-primary" type="submit">Create Invoice</button>
+    </form>
+
+    <h3>Log Expense</h3>
+    <form method="post" action="/finance/expenses" class="inventory-form">
+      <label>Date</label>
+      <input name="expense_date" type="date" value="{{ today }}" required>
+      <input name="category" placeholder="Category (Supplies, Booth Fee...)" required>
+      <input name="vendor" placeholder="Vendor">
+      <input name="amount" type="number" min="0.01" step="0.01" placeholder="Amount" required>
+      <textarea name="notes" placeholder="Expense notes"></textarea>
+      <button class="btn btn-primary" type="submit">Save Expense</button>
+    </form>
+  </section>
+
+  <section class="inventory-panel">
+    <h3>Invoices</h3>
+    <table class="inventory-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Total</th>
+          <th>Paid</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invoice in invoices %}
+        <tr>
+          <td><a hx-get="/finance?invoice_id={{ invoice.id }}" hx-target="#content" hx-swap="innerHTML">{{ invoice.invoice_number }}</a></td>
+          <td>{{ invoice.customer_name or 'N/A' }}</td>
+          <td>{{ invoice.status }}</td>
+          <td>${{ '%.2f'|format(invoice.total_amount) }}</td>
+          <td>${{ '%.2f'|format(invoice.paid_amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if selected_invoice %}
+    <div class="inventory-card" style="margin-top: 16px;">
+      <h3>Invoice {{ selected_invoice.invoice_number }}</h3>
+      <p><strong>Customer:</strong> {{ selected_invoice.customer_name or 'N/A' }}</p>
+      <p><strong>Issue/Due:</strong> {{ selected_invoice.issue_date }} / {{ selected_invoice.due_date or 'N/A' }}</p>
+      <p><strong>Total:</strong> ${{ '%.2f'|format(selected_invoice.total_amount) }} | <strong>Paid:</strong> ${{ '%.2f'|format(selected_invoice.paid_amount) }}</p>
+
+      <h4>Add line item</h4>
+      <form method="post" action="/finance/invoices/{{ selected_invoice.id }}/items" class="inventory-form">
+        <input name="description" placeholder="Handcrafted cards bulk order" required>
+        <input name="quantity" type="number" min="1" step="1" placeholder="Quantity" required>
+        <input name="unit_price" type="number" min="0" step="0.01" placeholder="Unit price" required>
+        <button class="btn btn-primary" type="submit">Add Item</button>
+      </form>
+
+      <table class="inventory-table" style="margin-top: 12px;">
+        <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead>
+        <tbody>
+          {% for item in invoice_items %}
+          <tr>
+            <td>{{ item.description }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ '%.2f'|format(item.unit_price) }}</td>
+            <td>${{ '%.2f'|format(item.line_total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h4 style="margin-top:12px;">Record payment</h4>
+      <form method="post" action="/finance/invoices/{{ selected_invoice.id }}/payments" class="inventory-form">
+        <input name="amount" type="number" min="0.01" step="0.01" placeholder="Payment amount" required>
+        <input name="payment_date" type="date" value="{{ today }}" required>
+        <input name="method" placeholder="Method (cash, card, transfer)">
+        <input name="notes" placeholder="Payment notes">
+        <button class="btn btn-primary" type="submit">Add Payment</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <h3 style="margin-top: 18px;">Recent Expenses</h3>
+    <table class="inventory-table">
+      <thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Amount</th></tr></thead>
+      <tbody>
+        {% for expense in expenses %}
+        <tr>
+          <td>{{ expense.expense_date }}</td>
+          <td>{{ expense.category }}</td>
+          <td>{{ expense.vendor or '—' }}</td>
+          <td>${{ '%.2f'|format(expense.amount) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

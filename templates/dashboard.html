@@ -31,5 +31,32 @@
       <span class="card-hint">Needs attention soon</span>
     </div>
   </div>
+
+  <div class="card card-secondary">
+    <div class="card-icon">💵</div>
+    <div class="card-content">
+      <h3>Revenue Collected</h3>
+      <p class="card-metric">${{ '%.2f'|format(finance_metrics.total_received) }}</p>
+      <span class="card-hint">Payments received from invoices</span>
+    </div>
+  </div>
+
+  <div class="card card-warning">
+    <div class="card-icon">🧾</div>
+    <div class="card-content">
+      <h3>Outstanding</h3>
+      <p class="card-metric">${{ '%.2f'|format(finance_metrics.outstanding) }}</p>
+      <span class="card-hint">Unpaid invoice balance</span>
+    </div>
+  </div>
+
+  <div class="card card-primary">
+    <div class="card-icon">📉</div>
+    <div class="card-content">
+      <h3>Net Cash</h3>
+      <p class="card-metric">${{ '%.2f'|format(finance_metrics.net_cash) }}</p>
+      <span class="card-hint">Revenue received minus expenses</span>
+    </div>
+  </div>
 </div>
 {% endblock %}

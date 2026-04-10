@@ -7,12 +7,14 @@ from routes.inventory import router as inventory_router
 from routes.generate import router as generate_router
 from routes.plugins import router as plugins_router
 from routes.history import router as history_router
+from routes.finance import router as finance_router
 
 from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 
 from db import init_db, get_dashboard_metrics, get_inventory_filter_options
+from db import get_financial_metrics
 from config import MEDIA_ROOT
 
 @asynccontextmanager
@@ -41,6 +43,7 @@ app.include_router(inventory_router)
 app.include_router(generate_router)
 app.include_router(plugins_router)
 app.include_router(history_router)
+app.include_router(finance_router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -51,11 +54,13 @@ async def home(request: Request):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     metrics = get_dashboard_metrics()
+    finance_metrics = get_financial_metrics()
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
             "metrics": metrics,
+            "finance_metrics": finance_metrics,
         },
     )
 

@@ -1312,3 +1312,205 @@ def latest_pending_history():
 
 def latest_redo_candidate():
     return get_db().latest_redo_candidate()
+
+
+def _sqlite_conn() -> sqlite3.Connection:
+    db = get_db()
+    conn = getattr(db, "conn", None)
+    if conn is None:
+        raise RuntimeError("SQLite connection unavailable")
+    return conn
+
+
+def list_customers():
+    return _sqlite_conn().execute(
+        """
+        SELECT id, name, email, phone, notes, created_at
+        FROM customers
+        ORDER BY name COLLATE NOCASE ASC
+        """
+    ).fetchall()
+
+
+def add_customer(name: str, email: str | None, phone: str | None, notes: str | None) -> int:
+    conn = _sqlite_conn()
+    cursor = conn.execute(
+        """
+        INSERT INTO customers (name, email, phone, notes)
+        VALUES (?, ?, ?, ?)
+        """,
+        (name.strip(), (email or "").strip() or None, (phone or "").strip() or None, (notes or "").strip() or None),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def create_invoice(
+    invoice_number: str,
+    customer_id: int | None,
+    issue_date: str,
+    due_date: str | None,
+    notes: str | None,
+) -> int:
+    conn = _sqlite_conn()
+    cursor = conn.execute(
+        """
+        INSERT INTO invoices (invoice_number, customer_id, issue_date, due_date, notes, status)
+        VALUES (?, ?, ?, ?, ?, 'draft')
+        """,
+        (invoice_number.strip(), customer_id, issue_date, due_date or None, (notes or "").strip() or None),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def add_invoice_item(invoice_id: int, description: str, quantity: int, unit_price: float) -> int:
+    line_total = round(quantity * unit_price, 2)
+    conn = _sqlite_conn()
+    cursor = conn.execute(
+        """
+        INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, line_total)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (invoice_id, description.strip(), quantity, unit_price, line_total),
+    )
+    conn.commit()
+    return int(cursor.lastrowid)
+
+
+def list_invoices():
+    conn = _sqlite_conn()
+    return conn.execute(
+        """
+        SELECT
+            i.id,
+            i.invoice_number,
+            i.issue_date,
+            i.due_date,
+            i.status,
+            i.notes,
+            c.name AS customer_name,
+            COALESCE(SUM(ii.line_total), 0) AS total_amount,
+            COALESCE((SELECT SUM(p.amount) FROM invoice_payments p WHERE p.invoice_id = i.id), 0) AS paid_amount
+        FROM invoices i
+        LEFT JOIN customers c ON c.id = i.customer_id
+        LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
+        GROUP BY i.id
+        ORDER BY i.issue_date DESC, i.id DESC
+        """
+    ).fetchall()
+
+
+def get_invoice_details(invoice_id: int):
+    conn = _sqlite_conn()
+    invoice = conn.execute(
+        """
+        SELECT
+            i.id,
+            i.invoice_number,
+            i.issue_date,
+            i.due_date,
+            i.status,
+            i.notes,
+            c.name AS customer_name,
+            c.email AS customer_email,
+            c.phone AS customer_phone,
+            COALESCE(SUM(ii.line_total), 0) AS total_amount,
+            COALESCE((SELECT SUM(p.amount) FROM invoice_payments p WHERE p.invoice_id = i.id), 0) AS paid_amount
+        FROM invoices i
+        LEFT JOIN customers c ON c.id = i.customer_id
+        LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
+        WHERE i.id = ?
+        GROUP BY i.id
+        """,
+        (invoice_id,),
+    ).fetchone()
+    if invoice is None:
+        return None, [], []
+    items = conn.execute(
+        """
+        SELECT id, description, quantity, unit_price, line_total
+        FROM invoice_items
+        WHERE invoice_id = ?
+        ORDER BY id ASC
+        """,
+        (invoice_id,),
+    ).fetchall()
+    payments = conn.execute(
+        """
+        SELECT id, amount, payment_date, method, notes
+        FROM invoice_payments
+        WHERE invoice_id = ?
+        ORDER BY payment_date DESC, id DESC
+        """,
+        (invoice_id,),
+    ).fetchall()
+    return invoice, items, payments
+
+
+def add_invoice_payment(invoice_id: int, amount: float, payment_date: str, method: str | None, notes: str | None):
+    conn = _sqlite_conn()
+    conn.execute(
+        """
+        INSERT INTO invoice_payments (invoice_id, amount, payment_date, method, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (invoice_id, amount, payment_date, (method or "").strip() or None, (notes or "").strip() or None),
+    )
+    totals = conn.execute(
+        """
+        SELECT
+            COALESCE((SELECT SUM(line_total) FROM invoice_items WHERE invoice_id = ?), 0) AS total_amount,
+            COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_id = ?), 0) AS paid_amount
+        """,
+        (invoice_id, invoice_id),
+    ).fetchone()
+    status = "paid" if float(totals["paid_amount"] or 0) >= float(totals["total_amount"] or 0) else "sent"
+    conn.execute("UPDATE invoices SET status = ? WHERE id = ?", (status, invoice_id))
+    conn.commit()
+
+
+def add_expense(expense_date: str, category: str, vendor: str | None, amount: float, notes: str | None):
+    conn = _sqlite_conn()
+    conn.execute(
+        """
+        INSERT INTO expenses (expense_date, category, vendor, amount, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (expense_date, category.strip(), (vendor or "").strip() or None, amount, (notes or "").strip() or None),
+    )
+    conn.commit()
+
+
+def list_expenses(limit: int = 100):
+    return _sqlite_conn().execute(
+        """
+        SELECT id, expense_date, category, vendor, amount, notes
+        FROM expenses
+        ORDER BY expense_date DESC, id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+
+
+def get_financial_metrics() -> dict[str, float]:
+    conn = _sqlite_conn()
+    total_invoiced = float(
+        conn.execute("SELECT COALESCE(SUM(line_total), 0) AS value FROM invoice_items").fetchone()["value"] or 0
+    )
+    total_received = float(
+        conn.execute("SELECT COALESCE(SUM(amount), 0) AS value FROM invoice_payments").fetchone()["value"] or 0
+    )
+    total_expenses = float(
+        conn.execute("SELECT COALESCE(SUM(amount), 0) AS value FROM expenses").fetchone()["value"] or 0
+    )
+    outstanding = round(total_invoiced - total_received, 2)
+    net_cash = round(total_received - total_expenses, 2)
+    return {
+        "total_invoiced": round(total_invoiced, 2),
+        "total_received": round(total_received, 2),
+        "total_expenses": round(total_expenses, 2),
+        "outstanding": outstanding,
+        "net_cash": net_cash,
+    }

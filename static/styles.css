@@ -2325,3 +2325,35 @@ main {
 .barcode-card-footer {
   min-width: 0;
 }
+
+.inventory-layout {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.inventory-panel {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  padding: 1rem;
+  overflow: auto;
+}
+
+.inventory-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.inventory-form input,
+.inventory-form select,
+.inventory-form textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+}
