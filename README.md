@@ -213,6 +213,45 @@ docker compose start itemq
 
 ---
 
+## Inventory transaction audit + CSV OUT imports
+
+ItemQ now keeps an immutable-style quantity transaction audit log in `inventory_transactions` for:
+
+- scanner API adjustments (`POST /inventory/adjust`)  
+- manual quantity edits (`POST /inventory/{item_id}/quantity`)  
+- CSV OUT uploads (`POST /inventory/csv/out`)
+
+Each transaction records:
+
+- `direction` (`IN` or `OUT`)
+- `change_origin` (`manual`, `scanner`, `csv`)
+- `change_type` (`manual`, `adjustment`, `csv_upload`)
+- quantities before/after and delta
+- whether it is undoable
+
+### CSV OUT upload format
+
+`POST /inventory/csv/out` accepts a CSV file where every row is interpreted as an **OUT** transaction.
+
+Required columns:
+
+- `count` (integer > 0)
+- one of: `barcode_id` (preferred), `barcode`, or `code`
+
+Extra columns are ignored.
+
+Template endpoint:
+
+- `GET /inventory/csv/out/template`
+
+### Undo behavior
+
+- Manual quantity edits can be undone/redone from inventory history.
+- CSV uploads can be undone/redone from inventory history.
+- Scanner API adjustments are logged but **not undoable**.
+
+---
+
 ## Troubleshooting
 
 - **App starts but no CSS/JS/images**: verify `/static` and `/media` are being served and volume paths are correct.

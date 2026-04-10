@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import UploadFile, File
 from pathlib import Path
 from pydantic import BaseModel, Field, validator
 from datetime import datetime, timedelta
+import csv
+import io
 import uuid
 from typing import Literal
 from PIL import Image
@@ -35,6 +37,9 @@ from db import (
     mark_history_redone,
     latest_pending_history,
     latest_redo_candidate,
+    add_inventory_transaction,
+    mark_transactions_undone_by_history,
+    mark_transactions_redone_by_history,
 )
 from model import InventoryItem, Plugin
 from services.barcode import generate_barcode
@@ -121,6 +126,48 @@ def _json_load(raw):
         return json.loads(raw)
     except Exception:
         return None
+
+
+def _direction_from_delta(delta: int) -> Literal["IN", "OUT"] | None:
+    if delta > 0:
+        return "IN"
+    if delta < 0:
+        return "OUT"
+    return None
+
+
+def _parse_csv_out_rows(raw_bytes: bytes) -> list[dict]:
+    decoded = raw_bytes.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(decoded))
+    rows: list[dict] = []
+    for index, row in enumerate(reader, start=2):
+        barcode = (
+            (row.get("barcode_id") or "").strip()
+            or (row.get("barcode") or "").strip()
+            or (row.get("code") or "").strip()
+        )
+        count_raw = (row.get("count") or "").strip()
+        if not barcode:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {index}: missing barcode_id (or barcode/code).",
+            )
+        try:
+            count = int(count_raw)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {index}: count must be an integer.",
+            )
+        if count <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {index}: count must be > 0.",
+            )
+        rows.append({"row_number": index, "barcode": barcode, "count": count})
+    return rows
+
+
 _LAST_HISTORY_ID: int | None = None
 
 
@@ -592,12 +639,29 @@ async def update_inventory_item_quantity(
     update_inventory_quantity(item_id, quantity)
     _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
-    add_history_entry(
+    history_id = add_history_entry(
         action="update_quantity",
         summary=f"Quantity for '{before['name'] if before else item.name}' set to {quantity}",
         before_state=dict(before) if before else None,
         after_state=dict(get_inventory_item(item_id)) if item else None,
     )
+    if before and item:
+        delta = quantity - int(before["quantity"])
+        direction = _direction_from_delta(delta)
+        if direction:
+            add_inventory_transaction(
+                inventory_id=item.id,
+                barcode=item.barcode,
+                quantity_delta=delta,
+                previous_quantity=int(before["quantity"]),
+                new_quantity=quantity,
+                direction=direction,
+                change_origin="manual",
+                change_type="manual",
+                undoable=True,
+                payload={"route": "/inventory/{item_id}/quantity"},
+                history_id=history_id,
+            )
     response = templates.TemplateResponse(
         "partials/inventory_quantity.html",
         {
@@ -846,9 +910,17 @@ async def undo_history_action(
         for item_state in items:
             _restore_item(item_state)
     # Handle generic updates (name, quantity, details, image)
-    elif action.startswith("update_") and before_state:
+    elif (action.startswith("update_") or action == "csv_upload_out") and before_state:
         target_id = before_state.get("id")
-        if target_id and get_inventory_item(target_id):
+        if action == "csv_upload_out":
+            items = before_state if isinstance(before_state, list) else [before_state]
+            for item_state in items:
+                target_id = item_state.get("id")
+                if target_id and get_inventory_item(target_id):
+                    update_inventory_full(target_id, item_state)
+                else:
+                    _restore_item(item_state)
+        elif target_id and get_inventory_item(target_id):
             update_inventory_full(target_id, before_state)
         else:
             _restore_item(before_state)
@@ -856,6 +928,7 @@ async def undo_history_action(
         raise HTTPException(status_code=400, detail="Unsupported action for undo.")
 
     mark_history_undone(entry["id"])
+    mark_transactions_undone_by_history(entry["id"])
 
     if view == "history":
         history_rows = list_history(limit=200)
@@ -929,13 +1002,19 @@ async def redo_history_action(
         items = before_state if isinstance(before_state, list) else [before_state]
         for item_state in items:
             _delete_by_state(item_state)
-    elif action.startswith("update_"):
+    elif action.startswith("update_") or action == "csv_upload_out":
         if after_state:
-            _apply_state(after_state)
+            if action == "csv_upload_out":
+                items = after_state if isinstance(after_state, list) else [after_state]
+                for item_state in items:
+                    _apply_state(item_state)
+            else:
+                _apply_state(after_state)
     else:
         raise HTTPException(status_code=400, detail="Unsupported action for redo.")
 
     mark_history_redone(entry["id"])
+    mark_transactions_redone_by_history(entry["id"])
 
     if view == "history":
         history_rows = list_history(limit=200)
@@ -1014,6 +1093,79 @@ async def edit_inventory_details_cell(
     )
 
 
+@router.post("/inventory/csv/out")
+async def upload_csv_out_transactions(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
+
+    rows = _parse_csv_out_rows(await file.read())
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV is empty.")
+
+    planned: list[dict] = []
+    for row in rows:
+        item_row = get_inventory_item_by_barcode(row["barcode"])
+        if item_row is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Row {row['row_number']}: unknown barcode '{row['barcode']}'.",
+            )
+        before = dict(item_row)
+        new_quantity = int(before["quantity"]) - row["count"]
+        after = {**before, "quantity": new_quantity}
+        planned.append(
+            {
+                "row_number": row["row_number"],
+                "count": row["count"],
+                "before": before,
+                "after": after,
+            }
+        )
+
+    for change in planned:
+        update_inventory_quantity(change["before"]["id"], change["after"]["quantity"])
+
+    history_id = add_history_entry(
+        action="csv_upload_out",
+        summary=f"CSV OUT upload applied to {len(planned)} items",
+        before_state=[change["before"] for change in planned],
+        after_state=[change["after"] for change in planned],
+    )
+
+    for change in planned:
+        add_inventory_transaction(
+            inventory_id=change["before"]["id"],
+            barcode=change["before"]["barcode"],
+            quantity_delta=-change["count"],
+            previous_quantity=int(change["before"]["quantity"]),
+            new_quantity=int(change["after"]["quantity"]),
+            direction="OUT",
+            change_origin="csv",
+            change_type="csv_upload",
+            undoable=True,
+            payload={
+                "row_number": change["row_number"],
+                "filename": file.filename,
+                "route": "/inventory/csv/out",
+            },
+            history_id=history_id,
+        )
+
+    return {
+        "status": "ok",
+        "history_id": history_id,
+        "updated_count": len(planned),
+        "undo_supported": True,
+        "required_columns": ["barcode_id", "count"],
+        "accepted_barcode_columns": ["barcode_id", "barcode", "code"],
+    }
+
+
+@router.get("/inventory/csv/out/template", response_class=PlainTextResponse)
+async def csv_out_template():
+    return "barcode_id,count\nABC123,1\nXYZ987,3\n"
+
+
 @router.post("/inventory/adjust")
 async def adjust_inventory_by_barcode(payload: InventoryAdjustmentPayload):
     item_row = get_inventory_item_by_barcode(payload.code)
@@ -1059,6 +1211,23 @@ async def adjust_inventory_by_barcode(payload: InventoryAdjustmentPayload):
             )
 
     update_inventory_quantity(item.id, new_quantity)
+    add_inventory_transaction(
+        inventory_id=item.id,
+        barcode=item.barcode,
+        quantity_delta=delta,
+        previous_quantity=item.quantity,
+        new_quantity=new_quantity,
+        direction=payload.direction,
+        change_origin="scanner",
+        change_type="adjustment" if payload.redacted else "manual",
+        undoable=False,
+        payload={
+            "timestamp": payload.timestamp.isoformat(),
+            "redacted": payload.redacted,
+            "route": "/inventory/adjust",
+        },
+        history_id=None,
+    )
 
     return {
         "status": "ok",

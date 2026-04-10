@@ -154,6 +154,26 @@ class InventoryDB(Protocol):
 
     def latest_redo_candidate(self) -> Optional[sqlite3.Row]: ...
 
+    # Transaction audit
+    def add_inventory_transaction(
+        self,
+        inventory_id: int,
+        barcode: str,
+        quantity_delta: int,
+        previous_quantity: int,
+        new_quantity: int,
+        direction: Literal["IN", "OUT"],
+        change_origin: Literal["manual", "scanner", "csv"],
+        change_type: Literal["manual", "adjustment", "csv_upload"],
+        undoable: bool,
+        payload: dict | None = None,
+        history_id: int | None = None,
+    ) -> int: ...
+
+    def mark_transactions_undone_by_history(self, history_id: int) -> None: ...
+
+    def mark_transactions_redone_by_history(self, history_id: int) -> None: ...
+
     # History / undo
     def add_history_entry(
         self,
@@ -202,7 +222,7 @@ class SQLiteInventoryDB:
             self.conn.executescript(Path("models.sql").read_text())
             self._ensure_inventory_columns()
             self._ensure_history_table()
-            self._ensure_history_table()
+            self._ensure_transaction_table()
 
     def _ensure_inventory_columns(self) -> None:
         columns = {
@@ -255,6 +275,17 @@ class SQLiteInventoryDB:
             self.conn.executescript(
                 Path("models.sql").read_text()
             )
+
+    def _ensure_transaction_table(self) -> None:
+        exists = self.conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table' AND name='inventory_transactions'
+            """
+        ).fetchone()
+        if not exists:
+            self.conn.executescript(Path("models.sql").read_text())
 
     # -------- Inventory Ops --------
 
@@ -916,6 +947,76 @@ class SQLiteInventoryDB:
             """
         ).fetchone()
 
+    def add_inventory_transaction(
+        self,
+        inventory_id: int,
+        barcode: str,
+        quantity_delta: int,
+        previous_quantity: int,
+        new_quantity: int,
+        direction: Literal["IN", "OUT"],
+        change_origin: Literal["manual", "scanner", "csv"],
+        change_type: Literal["manual", "adjustment", "csv_upload"],
+        undoable: bool,
+        payload: dict | None = None,
+        history_id: int | None = None,
+    ) -> int:
+        cursor = self.conn.execute(
+            """
+            INSERT INTO inventory_transactions (
+                inventory_id,
+                barcode,
+                quantity_delta,
+                previous_quantity,
+                new_quantity,
+                direction,
+                change_origin,
+                change_type,
+                undoable,
+                payload,
+                history_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, json(?), ?)
+            """,
+            (
+                inventory_id,
+                barcode,
+                quantity_delta,
+                previous_quantity,
+                new_quantity,
+                direction,
+                change_origin,
+                change_type,
+                int(undoable),
+                json.dumps(payload) if payload is not None else None,
+                history_id,
+            ),
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def mark_transactions_undone_by_history(self, history_id: int) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory_transactions
+            SET undone_at = CURRENT_TIMESTAMP
+            WHERE history_id = ?
+            """,
+            (history_id,),
+        )
+        self.conn.commit()
+
+    def mark_transactions_redone_by_history(self, history_id: int) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory_transactions
+            SET undone_at = NULL
+            WHERE history_id = ?
+            """,
+            (history_id,),
+        )
+        self.conn.commit()
+
     def update_inventory_full(self, item_id: int, state: dict) -> None:
         self.conn.execute(
             """
@@ -1312,3 +1413,39 @@ def latest_pending_history():
 
 def latest_redo_candidate():
     return get_db().latest_redo_candidate()
+
+
+def add_inventory_transaction(
+    inventory_id: int,
+    barcode: str,
+    quantity_delta: int,
+    previous_quantity: int,
+    new_quantity: int,
+    direction: Literal["IN", "OUT"],
+    change_origin: Literal["manual", "scanner", "csv"],
+    change_type: Literal["manual", "adjustment", "csv_upload"],
+    undoable: bool,
+    payload: dict | None = None,
+    history_id: int | None = None,
+) -> int:
+    return get_db().add_inventory_transaction(
+        inventory_id=inventory_id,
+        barcode=barcode,
+        quantity_delta=quantity_delta,
+        previous_quantity=previous_quantity,
+        new_quantity=new_quantity,
+        direction=direction,
+        change_origin=change_origin,
+        change_type=change_type,
+        undoable=undoable,
+        payload=payload,
+        history_id=history_id,
+    )
+
+
+def mark_transactions_undone_by_history(history_id: int) -> None:
+    return get_db().mark_transactions_undone_by_history(history_id)
+
+
+def mark_transactions_redone_by_history(history_id: int) -> None:
+    return get_db().mark_transactions_redone_by_history(history_id)

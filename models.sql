@@ -51,3 +51,22 @@ CREATE TABLE IF NOT EXISTS inventory_history (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     undone_at DATETIME
 );
+
+CREATE TABLE IF NOT EXISTS inventory_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inventory_id INTEGER NOT NULL,
+    barcode TEXT NOT NULL,
+    quantity_delta INTEGER NOT NULL,
+    previous_quantity INTEGER NOT NULL,
+    new_quantity INTEGER NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('IN', 'OUT')),
+    change_origin TEXT NOT NULL CHECK (change_origin IN ('manual', 'scanner', 'csv')),
+    change_type TEXT NOT NULL CHECK (change_type IN ('manual', 'adjustment', 'csv_upload')),
+    undoable INTEGER NOT NULL DEFAULT 0,
+    payload JSON,
+    history_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    undone_at DATETIME,
+    FOREIGN KEY (inventory_id) REFERENCES inventory(id),
+    FOREIGN KEY (history_id) REFERENCES inventory_history(id)
+);
