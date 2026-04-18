@@ -5,7 +5,10 @@ from typing import Literal, Protocol, Iterable, Optional
 from config import MEDIA_ROOT
 import json
 
+
 DEFAULT_DB_NAME = "itemq.db"
+MIGRATIONS_DIR = Path("migrations")
+BASE_SQL_PATH = MIGRATIONS_DIR / "models.sql"
 
 
 # =============================
@@ -59,6 +62,25 @@ class InventoryDB(Protocol):
     def update_inventory_image(self, item_id: int, image_path: str) -> None: ...
 
     def update_inventory_image_hash(self, item_id: int, image_hash: str) -> None: ...
+
+    def update_inventory_notion_page_id(
+        self,
+        item_id: int,
+        notion_page_id: Optional[str],
+    ) -> None: ...
+
+    def update_inventory_notion_sync_flags(
+        self,
+        item_id: int,
+        notion_row_synced: bool,
+        notion_cover_synced: bool,
+    ) -> None: ...
+
+    def update_inventory_notion_sync_status(
+        self,
+        item_id: int,
+        notion_sync_status: str,
+    ) -> None: ...
 
     def update_inventory_details(
         self,
@@ -131,6 +153,12 @@ class InventoryDB(Protocol):
 
     def get_dashboard_metrics(self, low_stock_threshold: int) -> dict[str, int]: ...
 
+    def has_migration(self, name: str) -> bool: ...
+
+    def record_migration(self, name: str) -> None: ...
+
+    def apply_sql_migration(self, name: str, sql: str) -> None: ...
+
     # History / undo
     def add_history_entry(
         self,
@@ -199,10 +227,45 @@ class SQLiteInventoryDB:
 
     def init_schema(self):
         with self.conn:
-            self.conn.executescript(Path("models.sql").read_text())
+            self.conn.executescript(BASE_SQL_PATH.read_text())
+            self._apply_pending_migrations()
             self._ensure_inventory_columns()
             self._ensure_history_table()
-            self._ensure_history_table()
+            
+    def has_migration(self, name: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM schema_migrations WHERE name = ?",
+            (name,),
+        ).fetchone()
+        return row is not None
+
+    def record_migration(self, name: str) -> None:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)",
+            (name,),
+        )
+
+    def apply_sql_migration(self, name: str, sql: str) -> None:
+        if self.has_migration(name):
+            return
+        self.conn.executescript(sql)
+        self.record_migration(name)
+
+    def _apply_pending_migrations(self) -> None:
+        if not MIGRATIONS_DIR.exists():
+            return
+
+        migration_files = sorted(
+            path
+            for path in MIGRATIONS_DIR.glob("*.sql")
+            if path.name != "models.sql"
+        )
+
+        for migration_path in migration_files:
+            migration_name = migration_path.name
+            if self.has_migration(migration_name):
+                continue
+            self.apply_sql_migration(migration_name, migration_path.read_text())
 
     def _ensure_inventory_columns(self) -> None:
         columns = {
@@ -210,26 +273,81 @@ class SQLiteInventoryDB:
             for row in self.conn.execute("PRAGMA table_info(inventory)").fetchall()
         }
         desired_columns = {
-            "image_hash": "TEXT",
-            "group_name": "TEXT",
-            "collection_name": "TEXT",
-            "collection_category": "TEXT",
-            "occasion": "TEXT",
-            "season": "TEXT",
-            "holiday": "TEXT",
-            "emotion": "TEXT",
-            "color": "TEXT",
-            "event_name": "TEXT",
-            "event_date": "TEXT",
-            "event_location": "TEXT",
-            "event_notes": "TEXT",
-            "notion_page_id": "TEXT",
+            "image_hash": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_image_hash",
+            },
+            "group_name": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_group_name",
+            },
+            "collection_name": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_collection_name",
+            },
+            "collection_category": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_collection_category",
+            },
+            "occasion": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_occasion",
+            },
+            "season": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_season",
+            },
+            "holiday": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_holiday",
+            },
+            "emotion": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_emotion",
+            },
+            "color": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_color",
+            },
+            "event_name": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_event_name",
+            },
+            "event_date": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_event_date",
+            },
+            "event_location": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_event_location",
+            },
+            "event_notes": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_event_notes",
+            },
+            "notion_page_id": {
+                "type": "TEXT",
+                "migration": "legacy_add_inventory_notion_page_id",
+            },
+            "notion_row_synced": {
+                "type": "INTEGER NOT NULL DEFAULT 0",
+                "migration": "legacy_add_inventory_notion_row_synced",
+            },
+            "notion_cover_synced": {
+                "type": "INTEGER NOT NULL DEFAULT 0",
+                "migration": "legacy_add_inventory_notion_cover_synced",
+            },
+            "notion_sync_status": {
+                "type": "TEXT NOT NULL DEFAULT 'pending'",
+                "migration": "legacy_add_inventory_notion_sync_status",
+            },
         }
 
-        for column, column_type in desired_columns.items():
+        for column, spec in desired_columns.items():
             if column not in columns:
-                self.conn.execute(
-                    f"ALTER TABLE inventory ADD COLUMN {column} {column_type}"
+                self.apply_sql_migration(
+                    spec["migration"],
+                    f"ALTER TABLE inventory ADD COLUMN {column} {spec['type']};"
                 )
 
     def _ensure_history_table(self) -> None:
@@ -241,7 +359,7 @@ class SQLiteInventoryDB:
             """
         ).fetchone()
         if not exists:
-            self.conn.executescript(Path("models.sql").read_text())
+            self.conn.executescript(BASE_SQL_PATH.read_text())
 
     def _ensure_history_table(self) -> None:
         exists = self.conn.execute(
@@ -253,7 +371,7 @@ class SQLiteInventoryDB:
         ).fetchone()
         if not exists:
             self.conn.executescript(
-                Path("models.sql").read_text()
+                BASE_SQL_PATH.read_text()
             )
 
     # -------- Inventory Ops --------
@@ -301,9 +419,12 @@ class SQLiteInventoryDB:
                 event_date,
                 event_location,
                 event_notes,
-                notion_page_id
+                notion_page_id,
+                notion_row_synced,
+                notion_cover_synced,
+                notion_sync_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'pending')
             """,
             (
                 name,
@@ -457,6 +578,9 @@ class SQLiteInventoryDB:
             event_location,
             event_notes,
             notion_page_id,
+            notion_row_synced,
+            notion_cover_synced,
+            notion_sync_status,
             source,
             created_at
         """
@@ -529,6 +653,44 @@ class SQLiteInventoryDB:
         self.conn.execute(
             "UPDATE inventory SET image_hash = ? WHERE id = ?",
             (image_hash, item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_page_id(
+        self,
+        item_id: int,
+        notion_page_id: Optional[str],
+    ) -> None:
+        self.conn.execute(
+            "UPDATE inventory SET notion_page_id = ? WHERE id = ?",
+            (notion_page_id, item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_sync_flags(
+        self,
+        item_id: int,
+        notion_row_synced: bool,
+        notion_cover_synced: bool,
+    ) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory
+            SET notion_row_synced = ?, notion_cover_synced = ?
+            WHERE id = ?
+            """,
+            (int(notion_row_synced), int(notion_cover_synced), item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_sync_status(
+        self,
+        item_id: int,
+        notion_sync_status: str,
+    ) -> None:
+        self.conn.execute(
+            "UPDATE inventory SET notion_sync_status = ? WHERE id = ?",
+            (notion_sync_status, item_id),
         )
         self.conn.commit()
 
@@ -938,6 +1100,9 @@ class SQLiteInventoryDB:
                 event_location = ?,
                 event_notes = ?,
                 notion_page_id = ?,
+                notion_row_synced = ?,
+                notion_cover_synced = ?,
+                notion_sync_status = ?,
                 source = ?\n            WHERE id = ?\n            """,
             (
                 state.get("name"),
@@ -958,6 +1123,9 @@ class SQLiteInventoryDB:
                 state.get("event_location"),
                 state.get("event_notes"),
                 state.get("notion_page_id"),
+                int(bool(state.get("notion_row_synced"))),
+                int(bool(state.get("notion_cover_synced"))),
+                state.get("notion_sync_status", "pending"),
                 state.get("source", "local"),
                 item_id,
             ),
@@ -1159,6 +1327,26 @@ def update_inventory_image(item_id: int, image_path: str):
 
 def update_inventory_image_hash(item_id: int, image_hash: str):
     get_db().update_inventory_image_hash(item_id, image_hash)
+
+
+def update_inventory_notion_page_id(item_id: int, notion_page_id: Optional[str]):
+    get_db().update_inventory_notion_page_id(item_id, notion_page_id)
+
+
+def update_inventory_notion_sync_flags(
+    item_id: int,
+    notion_row_synced: bool,
+    notion_cover_synced: bool,
+):
+    get_db().update_inventory_notion_sync_flags(
+        item_id,
+        notion_row_synced,
+        notion_cover_synced,
+    )
+
+
+def update_inventory_notion_sync_status(item_id: int, notion_sync_status: str):
+    get_db().update_inventory_notion_sync_status(item_id, notion_sync_status)
 
 
 def update_inventory_details(

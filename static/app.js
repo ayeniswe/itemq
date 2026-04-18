@@ -33,3 +33,32 @@
     handleToggle();
   });
 })();
+
+window.cancelInventoryNotionSync = async function cancelInventoryNotionSync(button) {
+  const container = document.getElementById("inventory-notion-sync-status");
+  if (!container) return;
+
+  if (button instanceof HTMLButtonElement) {
+    button.disabled = true;
+  }
+
+  try {
+    const response = await fetch("/inventory/sync_to_notion/cancel", {
+      method: "POST",
+      headers: {
+        "HX-Request": "true",
+      },
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error("Cancel request failed");
+    }
+
+    container.outerHTML = await response.text();
+  } catch (_) {
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = false;
+    }
+  }
+};

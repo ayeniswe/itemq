@@ -51,6 +51,22 @@
 
   {% include "partials/inventory_name.html" %}
 
+  {% if notion_plugin_active and item.source == "local" %}
+  <td class="inventory-cell inventory-sync-pill-cell">
+    <span class="inventory-pill inventory-pill-sync {% if item.notion_sync_status == "syncing" %}inventory-pill-sync-active{% elif item.notion_row_synced and item.notion_cover_synced %}inventory-pill-sync-ready{% elif item.notion_sync_status == "failed" %}inventory-pill-sync-failed{% else %}inventory-pill-sync-pending{% endif %}">
+      {% if item.notion_sync_status == "syncing" %}
+        Syncing
+      {% elif item.notion_row_synced and item.notion_cover_synced %}
+        Synced
+      {% elif item.notion_sync_status == "failed" %}
+        Retry Needed
+      {% else %}
+        Pending Sync
+      {% endif %}
+    </span>
+  </td>
+  {% endif %}
+
   <td class="inventory-cell">
     {% if item.group_name %}
       <span class="inventory-pill inventory-pill-group">{{ item.group_name }}</span>
@@ -71,14 +87,30 @@
 
   <td class="inventory-cell inventory-actions-cell">
     {% if item.source != "notion" %}
-      <button class="inventory-delete-btn"
-              hx-confirm="Are you sure you want to delete this inventory item?"
-              hx-delete="/inventory/{{ item.id }}"
-              hx-target="#inventory-table-wrapper"
-              hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
-        Delete
-      </button>
+      <details class="inventory-row-menu">
+        <summary class="inventory-row-menu-trigger" aria-label="Row actions for {{ item.name }}">
+          <span aria-hidden="true">⋯</span>
+        </summary>
+        <div class="inventory-row-menu-list">
+          {% if notion_plugin_active %}
+            <button class="inventory-row-menu-btn"
+                    hx-post="/inventory/{{ item.id }}/sync_to_notion"
+                    hx-target="#inventory-table-wrapper"
+                    hx-swap="innerHTML"
+                    hx-include="#inventory-filters, #include-notion-toggle">
+              Resync to Notion
+            </button>
+          {% endif %}
+          <button class="inventory-row-menu-btn inventory-row-menu-btn-danger"
+                  hx-confirm="Are you sure you want to delete this inventory item?"
+                  hx-delete="/inventory/{{ item.id }}"
+                  hx-target="#inventory-table-wrapper"
+                  hx-swap="innerHTML"
+                  hx-include="#inventory-filters, #include-notion-toggle">
+            Delete
+          </button>
+        </div>
+      </details>
     {% else %}
       <span class="inventory-readonly inventory-muted inventory-notion-hint">
         Manage in Notion

@@ -43,6 +43,9 @@ class InventoryItem(BaseModel):
     event_location: str | None
     event_notes: str | None
     notion_page_id: str | None
+    notion_row_synced: bool
+    notion_cover_synced: bool
+    notion_sync_status: str
     source: str
     created_at: str
 
@@ -71,6 +74,9 @@ class InventoryItem(BaseModel):
             event_location=row[16],
             event_notes=row[17],
             notion_page_id=row[18],
-            source=row[19],
-            created_at=row[20],
+            notion_row_synced=bool(row[19]),
+            notion_cover_synced=bool(row[20]),
+            notion_sync_status=row[21],
+            source=row[22],
+            created_at=row[23],
         )

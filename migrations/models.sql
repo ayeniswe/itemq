@@ -51,3 +51,9 @@ CREATE TABLE IF NOT EXISTS inventory_history (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     undone_at DATETIME
 );
+
+-- Tracks applied schema migrations
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

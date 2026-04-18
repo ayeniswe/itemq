@@ -20,6 +20,9 @@ from db import (
     update_inventory_quantity,
     update_inventory_image,
     update_inventory_image_hash,
+    update_inventory_notion_page_id,
+    update_inventory_notion_sync_flags,
+    update_inventory_notion_sync_status,
     delete_inventory_by_source,
     delete_inventory_item,
     get_inventory_item,
@@ -39,15 +42,17 @@ from db import (
 from model import InventoryItem, Plugin
 from services.barcode import generate_barcode
 from services.notion_worker import (
+    InventoryBackupSyncWorker,
+    InventoryBackupSyncSnapshot,
+    schedule_local_inventory_item_sync,
     update_notion_quantity_by_barcode,
-    upsert_notion_inventory_item,
-    update_notion_inventory_image,
 )
 from config import MEDIA_ROOT
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 PAGE_SIZE = 25
+_inventory_backup_sync_worker = InventoryBackupSyncWorker()
 
 def _parse_history_row(row) -> dict | None:
     if row is None:
@@ -190,6 +195,8 @@ def _render_inventory_table(
     filters: dict[str, str | None],
     page: int = 1,
 ):
+    notion_plugin = Plugin.from_row(get_plugin("notion"))
+    notion_plugin_active = bool(notion_plugin and notion_plugin.enabled and notion_plugin.config)
     total = count_inventory(include_notion=include_notion, filters=filters)
     total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
     page = max(min(page, total_pages), 1)
@@ -198,6 +205,10 @@ def _render_inventory_table(
         filters=filters,
         limit=PAGE_SIZE,
         offset=(page - 1) * PAGE_SIZE,
+    )
+    has_syncing_items = any(
+        item["source"] == "local" and item["notion_sync_status"] == "syncing"
+        for item in items
     )
     return templates.TemplateResponse(
         "partials/inventory_table.html",
@@ -209,7 +220,25 @@ def _render_inventory_table(
             "total_items": total,
             "page_size": PAGE_SIZE,
             "filters": filters,
+            "notion_plugin_active": notion_plugin_active,
+            "has_syncing_items": has_syncing_items,
         },
+    )
+
+
+def _queue_local_item_notion_sync(item_id: int) -> None:
+    plugin = Plugin.from_row(get_plugin("notion"))
+    if not (plugin and plugin.enabled and plugin.config):
+        return
+
+    item = get_inventory_item(item_id)
+    if item is None or item["source"] != "local":
+        return
+
+    schedule_local_inventory_item_sync(
+        plugin.config["token"],
+        plugin.config["database_id"],
+        dict(item),
     )
 
 
@@ -517,8 +546,6 @@ async def create_inventory_item(
         event_notes=event_notes,
     )
 
-    _sync_local_item_to_notion(request, item_id)
-
     add_history_entry(
         action="create",
         summary=f"Created item '{name}' (barcode {barcode})",
@@ -559,8 +586,14 @@ async def update_inventory_item_name(
 ):
     before = get_inventory_item(item_id)
     update_inventory_name(item_id, name)
-    _sync_local_item_to_notion(request, item_id)
+    update_inventory_notion_sync_flags(
+        item_id,
+        notion_row_synced=False,
+        notion_cover_synced=bool(before and before["notion_cover_synced"]),
+    )
+    update_inventory_notion_sync_status(item_id, "syncing")
     item = InventoryItem.from_row(get_inventory_item(item_id))
+    _queue_local_item_notion_sync(item_id)
     add_history_entry(
         action="update_name",
         summary=f"Renamed item '{before['name']}' → '{name}'",
@@ -590,7 +623,6 @@ async def update_inventory_item_quantity(
 ):
     before = get_inventory_item(item_id)
     update_inventory_quantity(item_id, quantity)
-    _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
     add_history_entry(
         action="update_quantity",
@@ -653,11 +685,16 @@ async def update_inventory_item_image(
         item_id,
         f"inventory/{filename}",
     )
+    update_inventory_notion_sync_flags(
+        item_id,
+        notion_row_synced=bool(before and before["notion_row_synced"]),
+        notion_cover_synced=False,
+    )
+    update_inventory_notion_sync_status(item_id, "syncing")
     image_hash = _calculate_image_hash(file_bytes)
     if image_hash:
         update_inventory_image_hash(item_id, image_hash)
-
-    _sync_inventory_image_to_notion(request, item_id, f"inventory/{filename}")
+    _queue_local_item_notion_sync(item_id)
 
     add_history_entry(
         action="update_image",
@@ -731,7 +768,6 @@ async def update_inventory_item_details(
         event_location,
         event_notes,
     )
-    _sync_local_item_to_notion(request, item_id)
     item = InventoryItem.from_row(get_inventory_item(item_id))
     add_history_entry(
         action="update_details",
@@ -1072,6 +1108,128 @@ async def adjust_inventory_by_barcode(payload: InventoryAdjustmentPayload):
     }
 
 
+def _render_inventory_sync_status(
+    request: Request,
+    snapshot: InventoryBackupSyncSnapshot | None = None,
+) -> HTMLResponse:
+    snapshot = snapshot or _inventory_backup_sync_worker.snapshot()
+    tone = "idle"
+    if snapshot.state == "running":
+        tone = "running"
+    elif snapshot.state == "canceling":
+        tone = "warning"
+    elif snapshot.state == "canceled":
+        tone = "warning"
+    elif snapshot.state == "failed":
+        tone = "failed"
+    elif snapshot.failed_rows or snapshot.failed_images:
+        tone = "warning"
+    elif snapshot.state == "completed":
+        tone = "success"
+
+    return templates.TemplateResponse(
+        "partials/inventory_notion_sync_status.html",
+        {
+            "request": request,
+            "sync_status": snapshot,
+            "sync_tone": tone,
+        },
+    )
+
+
+@router.get("/inventory/sync_to_notion/status", response_class=HTMLResponse)
+async def inventory_sync_to_notion_status(request: Request):
+    return _render_inventory_sync_status(request)
+
+
+@router.post("/inventory/sync_to_notion", response_class=HTMLResponse)
+async def sync_inventory_to_notion(request: Request):
+    plugin = Plugin.from_row(get_plugin("notion"))
+    if not (plugin and plugin.enabled and plugin.config):
+        return _render_inventory_sync_status(
+            request,
+            InventoryBackupSyncSnapshot(
+                state="failed",
+                message="Connect Notion before syncing.",
+                detail="The backup sync needs an active Notion connection.",
+            ),
+        )
+
+    total_local_items = count_inventory(include_notion=False)
+    local_rows = list_inventory(
+        include_notion=False,
+        filters={},
+        limit=max(total_local_items, 1),
+        offset=0,
+    )
+    _inventory_backup_sync_worker.start(
+        plugin.config["token"],
+        plugin.config["database_id"],
+        [dict(row) for row in local_rows],
+    )
+    return _render_inventory_sync_status(request)
+
+
+@router.post("/inventory/sync_to_notion/cancel", response_class=HTMLResponse)
+async def cancel_inventory_sync_to_notion(request: Request):
+    _inventory_backup_sync_worker.stop()
+    return _render_inventory_sync_status(request)
+
+
+@router.post("/inventory/{item_id}/sync_to_notion", response_class=HTMLResponse)
+async def sync_inventory_row_to_notion(
+    request: Request,
+    item_id: int,
+    include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    image_status: str | None = Form(None),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
+):
+    item = get_inventory_item(item_id)
+    if item and item["source"] == "local":
+        update_inventory_notion_sync_flags(
+            item_id,
+            notion_row_synced=False,
+            notion_cover_synced=False,
+        )
+        update_inventory_notion_sync_status(item_id, "syncing")
+        _queue_local_item_notion_sync(item_id)
+
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        image_status=image_status,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:refreshHistory"
+    return response
+
+
 def _calculate_image_hash(file_bytes: bytes) -> str | None:
     try:
         image = Image.open(BytesIO(file_bytes)).convert("L").resize((8, 8))
@@ -1090,40 +1248,3 @@ def _hamming_distance(left: str, right: str) -> int:
     except ValueError:
         return 64
     return sum(l != r for l, r in zip(left_bits, right_bits))
-
-
-def _sync_local_item_to_notion(request: Request, item_id: int) -> None:
-    plugin_row = get_plugin("notion")
-    plugin = Plugin.from_row(plugin_row)
-    if not plugin or not plugin.enabled or not plugin.config:
-        return
-    item_row = get_inventory_item(item_id)
-    if not item_row or item_row["source"] != "local":
-        return
-    upsert_notion_inventory_item(
-        plugin.config["token"],
-        plugin.config["database_id"],
-        dict(item_row),
-    )
-
-
-def _sync_inventory_image_to_notion(
-    request: Request,
-    item_id: int,
-    image_path: str,
-) -> None:
-    plugin_row = get_plugin("notion")
-    plugin = Plugin.from_row(plugin_row)
-    if not plugin or not plugin.enabled or not plugin.config:
-        return
-    base_url = str(request.base_url).rstrip("/")
-    image_url = f"{base_url}/media/{image_path}"
-    item_row = get_inventory_item(item_id)
-    if not item_row or item_row["source"] != "local":
-        return
-    update_notion_inventory_image(
-        plugin.config["token"],
-        plugin.config["database_id"],
-        image_url,
-        barcode=item_row["barcode"],
-    )

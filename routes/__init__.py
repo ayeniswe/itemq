@@ -14,9 +14,11 @@ import os
 
 from db import init_db, get_dashboard_metrics, get_inventory_filter_options
 from config import MEDIA_ROOT
+from services.logging_setup import configure_logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    log_path = configure_logging()
     # DB path can be passed from CLI via env var
     db_path = os.environ.get("ITEMQ_DB_PATH")
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
 
     init_db(db_path)
     print(f"✅ DB initialized at startup: {db_path.resolve()}")
+    print(f"📝 Logging to: {log_path}")
 
     yield
 
