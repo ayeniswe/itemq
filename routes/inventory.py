@@ -197,6 +197,7 @@ def _render_inventory_table(
 ):
     notion_plugin = Plugin.from_row(get_plugin("notion"))
     notion_plugin_active = bool(notion_plugin and notion_plugin.enabled and notion_plugin.config)
+    bulk_sync_running = _inventory_backup_sync_worker.snapshot().state == "running"
     total = count_inventory(include_notion=include_notion, filters=filters)
     total_pages = max((total + PAGE_SIZE - 1) // PAGE_SIZE, 1)
     page = max(min(page, total_pages), 1)
@@ -222,6 +223,7 @@ def _render_inventory_table(
             "filters": filters,
             "notion_plugin_active": notion_plugin_active,
             "has_syncing_items": has_syncing_items,
+            "bulk_sync_running": bulk_sync_running,
         },
     )
 
@@ -1156,23 +1158,38 @@ async def sync_inventory_to_notion(request: Request):
         )
 
     total_local_items = count_inventory(include_notion=False)
-    local_rows = list_inventory(
+    all_local_rows = list_inventory(
         include_notion=False,
         filters={},
         limit=max(total_local_items, 1),
         offset=0,
     )
+    local_rows = [
+        dict(row)
+        for row in all_local_rows
+        if not (row["notion_row_synced"] and row["notion_cover_synced"])
+    ]
     _inventory_backup_sync_worker.start(
         plugin.config["token"],
         plugin.config["database_id"],
-        [dict(row) for row in local_rows],
+        local_rows,
     )
-    return _render_inventory_sync_status(request)
+    response = _render_inventory_sync_status(request)
+    response.headers["HX-Trigger"] = "inventory:refreshTable"
+    return response
 
 
 @router.post("/inventory/sync_to_notion/cancel", response_class=HTMLResponse)
 async def cancel_inventory_sync_to_notion(request: Request):
     _inventory_backup_sync_worker.stop()
+    response = _render_inventory_sync_status(request)
+    response.headers["HX-Trigger"] = "inventory:refreshTable"
+    return response
+
+
+@router.post("/inventory/sync_to_notion/dismiss", response_class=HTMLResponse)
+async def dismiss_inventory_sync_to_notion(request: Request):
+    _inventory_backup_sync_worker.dismiss()
     return _render_inventory_sync_status(request)
 
 

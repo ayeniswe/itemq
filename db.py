@@ -82,6 +82,8 @@ class InventoryDB(Protocol):
         notion_sync_status: str,
     ) -> None: ...
 
+    def reset_inventory_notion_syncing_to_pending(self) -> None: ...
+
     def update_inventory_details(
         self,
         item_id: int,
@@ -691,6 +693,16 @@ class SQLiteInventoryDB:
         self.conn.execute(
             "UPDATE inventory SET notion_sync_status = ? WHERE id = ?",
             (notion_sync_status, item_id),
+        )
+        self.conn.commit()
+
+    def reset_inventory_notion_syncing_to_pending(self) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory
+            SET notion_sync_status = 'pending'
+            WHERE source = 'local' AND notion_sync_status = 'syncing'
+            """
         )
         self.conn.commit()
 
@@ -1347,6 +1359,10 @@ def update_inventory_notion_sync_flags(
 
 def update_inventory_notion_sync_status(item_id: int, notion_sync_status: str):
     get_db().update_inventory_notion_sync_status(item_id, notion_sync_status)
+
+
+def reset_inventory_notion_syncing_to_pending():
+    get_db().reset_inventory_notion_syncing_to_pending()
 
 
 def update_inventory_details(

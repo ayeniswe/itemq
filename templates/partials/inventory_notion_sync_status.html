@@ -37,6 +37,14 @@
               onclick="window.cancelInventoryNotionSync?.(this)">
         Cancel
       </button>
+    {% elif sync_status.state != "idle" %}
+      <button type="button"
+              class="btn-secondary inventory-sync-cancel"
+              hx-post="/inventory/sync_to_notion/dismiss"
+              hx-target="#inventory-notion-sync-status"
+              hx-swap="outerHTML">
+        Dismiss
+      </button>
     {% endif %}
   {% endif %}
 </div>

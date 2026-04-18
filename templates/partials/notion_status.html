@@ -26,14 +26,10 @@
       <p class="notion-connected-detail notion-connected-detail--wrap">
         {{ plugin.config.database_name }}
       </p>
+      <p class="notion-connected-detail">
+        Use the Inventory page to sync local rows and covers to Notion.
+      </p>
     </div>
-
-    <form class="notion-sync"
-          hx-post="/plugins/notion/sync"
-          hx-target="#notion-plugin-body"
-          hx-swap="innerHTML">
-      <button class="btn-secondary" type="submit">Sync now</button>
-    </form>
 
     <form class="notion-disconnect"
           hx-post="/plugins/notion/disconnect"

@@ -10,6 +10,7 @@ from notion_client import Client as NotionClient, extract_database_id
 
 from config import MEDIA_ROOT
 from db import (
+    reset_inventory_notion_syncing_to_pending,
     update_inventory_notion_page_id,
     update_inventory_notion_sync_flags,
     update_inventory_notion_sync_status,
@@ -114,6 +115,11 @@ class InventoryBackupSyncWorker:
                 )
             return True
 
+        for item in local_items:
+            item_id = item.get("id")
+            if item_id:
+                update_inventory_notion_sync_status(int(item_id), "syncing")
+
         with self._lock:
             self._stop_event.clear()
             self._snapshot = InventoryBackupSyncSnapshot(
@@ -132,6 +138,12 @@ class InventoryBackupSyncWorker:
         )
         self._thread.start()
         return True
+
+    def dismiss(self) -> None:
+        with self._lock:
+            if self.running or self._snapshot.state in {"running", "canceling"}:
+                return
+            self._snapshot = InventoryBackupSyncSnapshot()
 
     def _run(self, token: str, database_id: str, items: list[dict]) -> None:
         try:
@@ -170,10 +182,11 @@ class InventoryBackupSyncWorker:
             return False
 
         self._stop_event.set()
+        reset_inventory_notion_syncing_to_pending()
         with self._lock:
-            self._snapshot.state = "canceling"
-            self._snapshot.message = "Canceling Notion sync…"
-            self._snapshot.detail = "Waiting for the current Notion request to finish."
+            self._snapshot.state = "canceled"
+            self._snapshot.message = "Notion sync canceled."
+            self._snapshot.detail = "Unfinished rows were reset to pending."
         return True
 
     def _apply_progress(self, event: dict) -> None:

@@ -19,7 +19,6 @@ from services.notion_worker import (
     NotionWorker,
     connect_to_notion,
     validate_notion_schema,
-    fetch_database_rows,
 )
 
 router = APIRouter()
@@ -41,38 +40,6 @@ def _serialize_plugin_row(row) -> dict | None:
     }
 
 
-def _start_notion_worker(plugin: dict | None) -> None:
-    if not plugin or not plugin.get("config"):
-        return
-
-    def worker_task(stop_event):
-        errored = False
-        try:
-            for row in fetch_database_rows(plugin["config"]["token"], plugin["config"]["database_id"]):
-                if stop_event.is_set():
-                    break
-                add_inventory_item(**row, source="notion")
-        except Exception:
-            errored = True
-        finally:
-            if stop_event.is_set():
-                if _notion_status["state"] != "disconnected":
-                    _notion_status["message"] = "Sync canceled."
-                _notion_status["state"] = "idle"
-            elif errored:
-                if _notion_status["state"] != "disconnected":
-                    _notion_status["message"] = (
-                        "Sync failed. Internal Error"
-                    )
-                _notion_status["state"] = "idle"
-            else:
-                _notion_status["state"] = "idle"
-                _notion_status["message"] = (
-                    "All set! Your Notion inventory is up to date."
-                )
-
-    _notion_worker.start(worker_task)
-    
 @router.get("/plugins/notion/status", response_class=HTMLResponse)
 async def notion_status(request: Request):
     plugin = Plugin.from_row(get_plugin("notion"))
@@ -115,10 +82,8 @@ async def notion_connect(
                 "database_id": database_id,
             }
             upsert_plugin("notion", True, config)
-            plugin = _serialize_plugin_row(get_plugin("notion"))
-            _notion_status["state"] = "fetching"
-            _notion_status["message"] = "Syncing Notion inventory…"
-            _start_notion_worker(plugin)
+            _notion_status["state"] = "idle"
+            _notion_status["message"] = "Notion connected. Use Inventory sync actions to push local rows."
     except notion_client.APIResponseError as e:
         error = str(e)
         if "API token" in error:
@@ -146,18 +111,13 @@ async def notion_connect(
 
 @router.post("/plugins/notion/sync", response_class=HTMLResponse)
 async def notion_sync(request: Request):
-    delete_inventory_by_source("notion") # Since things can go stale need to do this
     plugin = _serialize_plugin_row(get_plugin("notion"))
     if not plugin or not plugin.get("config"):
         _notion_status["state"] = "idle"
-        _notion_status["message"] = "Connect Notion to start syncing."
-    elif _notion_worker.running:
-        _notion_status["state"] = "fetching"
-        _notion_status["message"] = "Sync already in progress…"
+        _notion_status["message"] = "Connect Notion to enable inventory backup."
     else:
-        _notion_status["state"] = "fetching"
-        _notion_status["message"] = "Syncing Notion inventory…"
-        _start_notion_worker(plugin)
+        _notion_status["state"] = "idle"
+        _notion_status["message"] = "Plugin-side Notion sync is disabled. Use the Inventory page sync controls."
     plugin = _serialize_plugin_row(get_plugin("notion"))
     return templates.TemplateResponse(
         "partials/notion_status.html",

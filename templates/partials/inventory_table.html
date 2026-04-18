@@ -1,5 +1,5 @@
 <form id="inventory-bulk-form">
-  {% if has_syncing_items %}
+  {% if has_syncing_items or bulk_sync_running %}
     <div hx-get="/inventory/table"
          hx-trigger="load delay:1500ms, every 2s"
          hx-vals='{"page": "{{ page }}"}'
