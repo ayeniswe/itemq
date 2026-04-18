@@ -1,0 +1,42 @@
+<div id="inventory-notion-sync-status"
+     class="inventory-sync-status inventory-sync-status--{{ sync_tone }}"
+     aria-live="polite"
+     {% if sync_status.running or sync_status.canceling %}
+     hx-get="/inventory/sync_to_notion/status"
+     hx-trigger="load, every 1s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  {% if sync_status.state != "idle" %}
+    <div class="inventory-sync-ring" style="--sync-progress: {{ sync_status.percent }}%;">
+      <div class="inventory-sync-ring__inner">
+        <span>{{ sync_status.percent }}%</span>
+      </div>
+    </div>
+    <div class="inventory-sync-copy">
+      <p class="inventory-sync-title">{{ sync_status.message or "Notion sync ready." }}</p>
+      {% if sync_status.current_item and sync_status.running %}
+        <p class="inventory-sync-subtitle">Working on {{ sync_status.current_item }}</p>
+      {% elif sync_status.detail %}
+        <p class="inventory-sync-subtitle">{{ sync_status.detail }}</p>
+      {% endif %}
+      <p class="inventory-sync-metrics">
+        {{ sync_status.synced_rows }}/{{ sync_status.total_rows }} rows
+        •
+        {{ sync_status.synced_images }}/{{ sync_status.total_images }} images
+        {% if sync_status.failed_rows %}
+          • {{ sync_status.failed_rows }} row failures
+        {% endif %}
+        {% if sync_status.failed_images %}
+          • {{ sync_status.failed_images }} image failures
+        {% endif %}
+      </p>
+    </div>
+    {% if sync_status.running %}
+      <button type="button"
+              class="btn-secondary inventory-sync-cancel"
+              onclick="window.cancelInventoryNotionSync?.(this)">
+        Cancel
+      </button>
+    {% endif %}
+  {% endif %}
+</div>

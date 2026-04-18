@@ -10,9 +10,8 @@
               type="button"
               class="btn-secondary"
               hx-post="/inventory/sync_to_notion"
-              hx-target="#inventory-table-wrapper"
-              hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
+              hx-target="#inventory-notion-sync-status"
+              hx-swap="outerHTML">
         Sync to Notion
       </button>
       <button id="inventory-undo-btn"
@@ -59,7 +58,10 @@
              {% endif %}>
       <span>Include Notion Inventory</span>
     </label>
-
+    <div id="inventory-notion-sync-status"
+         hx-get="/inventory/sync_to_notion/status"
+         hx-trigger="load"
+         hx-swap="outerHTML"></div>
   </div>
 
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">

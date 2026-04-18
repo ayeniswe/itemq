@@ -1,9 +1,18 @@
 <form id="inventory-bulk-form">
+  {% if has_syncing_items %}
+    <div hx-get="/inventory/table"
+         hx-trigger="load delay:1500ms, every 2s"
+         hx-vals='{"page": "{{ page }}"}'
+         hx-target="#inventory-table-wrapper"
+         hx-swap="innerHTML"
+         hx-include="#inventory-filters, #include-notion-toggle"
+         hidden></div>
+  {% endif %}
   <input type="hidden" name="page" value="{{ page }}">
   <table class="inventory-table">
   <thead>
     <tr class="inventory-pagination-row">
-      <th colspan="9">
+      <th colspan="{% if notion_plugin_active %}10{% else %}9{% endif %}">
         <div class="inventory-pagination">
           <span class="inventory-muted">
             Page {{ page }} of {{ total_pages }} · {{ total_items }} items
@@ -40,6 +49,9 @@
       <th>Image</th>
       <th>Barcode</th>
       <th>Name</th>
+      {% if notion_plugin_active %}
+      <th>Notion</th>
+      {% endif %}
       <th>Group</th>
       <th>Details</th>
       <th>Quantity</th>
@@ -52,7 +64,7 @@
       {% include "partials/inventory_rows.html" %}
     {% else %}
       <tr>
-        <td colspan="8" class="inventory-empty-row">
+        <td colspan="{% if notion_plugin_active %}10{% else %}9{% endif %}" class="inventory-empty-row">
           No inventory items match your filters yet.
         </td>
       </tr>

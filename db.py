@@ -60,6 +60,25 @@ class InventoryDB(Protocol):
 
     def update_inventory_image_hash(self, item_id: int, image_hash: str) -> None: ...
 
+    def update_inventory_notion_page_id(
+        self,
+        item_id: int,
+        notion_page_id: Optional[str],
+    ) -> None: ...
+
+    def update_inventory_notion_sync_flags(
+        self,
+        item_id: int,
+        notion_row_synced: bool,
+        notion_cover_synced: bool,
+    ) -> None: ...
+
+    def update_inventory_notion_sync_status(
+        self,
+        item_id: int,
+        notion_sync_status: str,
+    ) -> None: ...
+
     def update_inventory_details(
         self,
         item_id: int,
@@ -224,6 +243,9 @@ class SQLiteInventoryDB:
             "event_location": "TEXT",
             "event_notes": "TEXT",
             "notion_page_id": "TEXT",
+            "notion_row_synced": "INTEGER NOT NULL DEFAULT 0",
+            "notion_cover_synced": "INTEGER NOT NULL DEFAULT 0",
+            "notion_sync_status": "TEXT NOT NULL DEFAULT 'pending'",
         }
 
         for column, column_type in desired_columns.items():
@@ -301,9 +323,12 @@ class SQLiteInventoryDB:
                 event_date,
                 event_location,
                 event_notes,
-                notion_page_id
+                notion_page_id,
+                notion_row_synced,
+                notion_cover_synced,
+                notion_sync_status
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 'pending')
             """,
             (
                 name,
@@ -457,6 +482,9 @@ class SQLiteInventoryDB:
             event_location,
             event_notes,
             notion_page_id,
+            notion_row_synced,
+            notion_cover_synced,
+            notion_sync_status,
             source,
             created_at
         """
@@ -529,6 +557,44 @@ class SQLiteInventoryDB:
         self.conn.execute(
             "UPDATE inventory SET image_hash = ? WHERE id = ?",
             (image_hash, item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_page_id(
+        self,
+        item_id: int,
+        notion_page_id: Optional[str],
+    ) -> None:
+        self.conn.execute(
+            "UPDATE inventory SET notion_page_id = ? WHERE id = ?",
+            (notion_page_id, item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_sync_flags(
+        self,
+        item_id: int,
+        notion_row_synced: bool,
+        notion_cover_synced: bool,
+    ) -> None:
+        self.conn.execute(
+            """
+            UPDATE inventory
+            SET notion_row_synced = ?, notion_cover_synced = ?
+            WHERE id = ?
+            """,
+            (int(notion_row_synced), int(notion_cover_synced), item_id),
+        )
+        self.conn.commit()
+
+    def update_inventory_notion_sync_status(
+        self,
+        item_id: int,
+        notion_sync_status: str,
+    ) -> None:
+        self.conn.execute(
+            "UPDATE inventory SET notion_sync_status = ? WHERE id = ?",
+            (notion_sync_status, item_id),
         )
         self.conn.commit()
 
@@ -938,6 +1004,9 @@ class SQLiteInventoryDB:
                 event_location = ?,
                 event_notes = ?,
                 notion_page_id = ?,
+                notion_row_synced = ?,
+                notion_cover_synced = ?,
+                notion_sync_status = ?,
                 source = ?\n            WHERE id = ?\n            """,
             (
                 state.get("name"),
@@ -958,6 +1027,9 @@ class SQLiteInventoryDB:
                 state.get("event_location"),
                 state.get("event_notes"),
                 state.get("notion_page_id"),
+                int(bool(state.get("notion_row_synced"))),
+                int(bool(state.get("notion_cover_synced"))),
+                state.get("notion_sync_status", "pending"),
                 state.get("source", "local"),
                 item_id,
             ),
@@ -1159,6 +1231,26 @@ def update_inventory_image(item_id: int, image_path: str):
 
 def update_inventory_image_hash(item_id: int, image_hash: str):
     get_db().update_inventory_image_hash(item_id, image_hash)
+
+
+def update_inventory_notion_page_id(item_id: int, notion_page_id: Optional[str]):
+    get_db().update_inventory_notion_page_id(item_id, notion_page_id)
+
+
+def update_inventory_notion_sync_flags(
+    item_id: int,
+    notion_row_synced: bool,
+    notion_cover_synced: bool,
+):
+    get_db().update_inventory_notion_sync_flags(
+        item_id,
+        notion_row_synced,
+        notion_cover_synced,
+    )
+
+
+def update_inventory_notion_sync_status(item_id: int, notion_sync_status: str):
+    get_db().update_inventory_notion_sync_status(item_id, notion_sync_status)
 
 
 def update_inventory_details(
