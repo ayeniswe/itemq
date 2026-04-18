@@ -6,6 +6,15 @@
       <h1>Your Inventory</h1>
     </div>
     <div class="inventory-header-actions">
+      <button id="inventory-sync-notion-btn"
+              type="button"
+              class="btn-secondary"
+              hx-post="/inventory/sync_to_notion"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-filters, #include-notion-toggle">
+        Sync to Notion
+      </button>
       <button id="inventory-undo-btn"
               type="button"
               class="icon-btn"

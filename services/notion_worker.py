@@ -375,6 +375,38 @@ def update_notion_inventory_image(
         logger.warning("Failed to sync inventory image to Notion: %s", exc)
 
 
+def sync_local_inventory_backup_to_notion(
+    token: str,
+    database_id: str,
+    items: Iterable[dict],
+    base_url: str,
+) -> tuple[int, int]:
+    synced_rows = 0
+    synced_images = 0
+
+    for item in items:
+        if item.get("source") != "local":
+            continue
+
+        upsert_notion_inventory_item(token, database_id, item)
+        synced_rows += 1
+
+        image_path = (item.get("image_path") or "").strip()
+        if not image_path:
+            continue
+
+        image_url = f"{base_url}/media/{image_path}"
+        update_notion_inventory_image(
+            token,
+            database_id,
+            image_url,
+            barcode=item.get("barcode"),
+        )
+        synced_images += 1
+
+    return synced_rows, synced_images
+
+
 def _get_primary_data_source(notion: NotionClient, database_id: str) -> dict | None:
     db = notion.databases.retrieve(database_id=database_id)
     sources = [
