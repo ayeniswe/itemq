@@ -1,68 +1,75 @@
 {% block content %}
 
-<div class="inventory-header">
+<div class="inventory-header inventory-header-shell">
   <div class="inventory-header-top">
-    <div>
+    <div class="inventory-header-intro">
+      <div class="inventory-subnav" aria-label="Inventory sections">
+        <button type="button" class="inventory-subnav-link is-active">
+          Inventory
+        </button>
+        <button type="button"
+                class="inventory-subnav-link"
+                hx-get="/inventory/duplicates/page"
+                hx-target="#content"
+                hx-swap="innerHTML">
+          Duplicates
+        </button>
+      </div>
       <h1>Your Inventory</h1>
+      <p class="inventory-subtitle">
+        Manage local inventory here, then run Notion backup sync only when you want it.
+      </p>
     </div>
-    <div class="inventory-header-actions">
-      <button id="inventory-sync-notion-btn"
-              type="button"
-              class="btn-secondary"
-              hx-post="/inventory/sync_to_notion"
-              hx-target="#inventory-notion-sync-status"
-              hx-swap="outerHTML">
-        Sync to Notion
-      </button>
-      <button id="inventory-undo-btn"
-              type="button"
-              class="icon-btn"
-              title="Undo (latest change)" data-tooltip="Undo latest change"
-              aria-label="Undo"
-              hx-post="/inventory/undo_action"
-              hx-target="#inventory-table-wrapper"
-              hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
-        <span class="icon-undo" aria-hidden="true"></span>
-      </button>
-      <button id="inventory-redo-btn"
-              type="button"
-              class="icon-btn"
-              title="Redo (most recently undone)" data-tooltip="Redo most recently undone"
-              aria-label="Redo"
-              hx-post="/inventory/redo_action"
-              hx-target="#inventory-table-wrapper"
-              hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
-        <span class="icon-redo" aria-hidden="true"></span>
-      </button>
-      <button id="inventory-add-toggle"
-              class="btn-secondary inventory-add-toggle">
-        + Add inventory item
-      </button>
+
+    <div class="inventory-toolbar">
+      <div class="inventory-toolbar-primary">
+        <button id="inventory-add-toggle"
+                type="button"
+                class="btn-primary inventory-add-toggle">
+          + Add inventory item
+        </button>
+        <button id="inventory-sync-notion-btn"
+                type="button"
+                class="btn-secondary"
+                hx-post="/inventory/sync_to_notion"
+                hx-target="#inventory-notion-sync-status"
+                hx-swap="outerHTML">
+          Sync to Notion
+        </button>
+      </div>
+      <div class="inventory-toolbar-secondary">
+        <button id="inventory-undo-btn"
+                type="button"
+                class="icon-btn"
+                title="Undo (latest change)"
+                data-tooltip="Undo latest change"
+                aria-label="Undo"
+                hx-post="/inventory/undo_action"
+                hx-target="#inventory-table-wrapper"
+                hx-swap="innerHTML"
+                hx-include="#inventory-filters">
+          <span class="icon-undo" aria-hidden="true"></span>
+        </button>
+        <button id="inventory-redo-btn"
+                type="button"
+                class="icon-btn"
+                title="Redo (most recently undone)"
+                data-tooltip="Redo most recently undone"
+                aria-label="Redo"
+                hx-post="/inventory/redo_action"
+                hx-target="#inventory-table-wrapper"
+                hx-swap="innerHTML"
+                hx-include="#inventory-filters">
+          <span class="icon-redo" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="inventory-actions">
-    <label class="inventory-toggle">
-      <input type="checkbox"
-             id="include-notion-toggle"
-             name="include_notion"
-             value="true"
-             hx-get="/inventory/table"
-             hx-target="#inventory-table-wrapper"
-             hx-swap="innerHTML"
-             hx-include="#inventory-filters, this"
-             {% if request.query_params.get('include_notion') %}
-             checked
-             {% endif %}>
-      <span>Include Notion Inventory</span>
-    </label>
-    <div id="inventory-notion-sync-status"
-         hx-get="/inventory/sync_to_notion/status"
-         hx-trigger="load"
-         hx-swap="outerHTML"></div>
-  </div>
+  <div id="inventory-notion-sync-status"
+       hx-get="/inventory/sync_to_notion/status"
+       hx-trigger="load"
+       hx-swap="outerHTML"></div>
 
   <div id="inventory-add-overlay" class="inventory-overlay is-hidden">
     <form id="inventory-add-card"
@@ -70,7 +77,7 @@
           hx-post="/inventory"
           hx-target="#inventory-table-wrapper"
           hx-swap="innerHTML"
-          hx-include="[name='include_notion'], #inventory-filters, #inventory-page"
+          hx-include="#inventory-filters, #inventory-page"
           hx-vals='js:{page: document.querySelector(`#inventory-table-wrapper [name="page"]`)?.value || "1", filter_search: document.getElementById("inventory-search")?.value || "", filter_search_case: document.querySelector(`#inventory-filters [name="search_case"]`)?.value || "insensitive", filter_image_status: document.querySelector(`#inventory-filters [name="image_status"]`)?.value || "", filter_group_name: document.querySelector(`#inventory-filters [name="group_name"]`)?.value || "", filter_collection_name: document.querySelector(`#inventory-filters [name="collection_name"]`)?.value || "", filter_collection_category: document.querySelector(`#inventory-filters [name="collection_category"]`)?.value || "", filter_occasion: document.querySelector(`#inventory-filters [name="occasion"]`)?.value || "", filter_season: document.querySelector(`#inventory-filters [name="season"]`)?.value || "", filter_holiday: document.querySelector(`#inventory-filters [name="holiday"]`)?.value || "", filter_emotion: document.querySelector(`#inventory-filters [name="emotion"]`)?.value || "", filter_color: document.querySelector(`#inventory-filters [name="color"]`)?.value || "", filter_event_name: document.querySelector(`#inventory-filters [name="event_name"]`)?.value || "", filter_created_from: document.querySelector(`#inventory-filters [name="created_from"]`)?.value || "", filter_created_to: document.querySelector(`#inventory-filters [name="created_to"]`)?.value || "", filter_tz_offset_minutes: document.querySelector(`#inventory-filters [name="tz_offset_minutes"]`)?.value || new Date().getTimezoneOffset()}'>
 
       <div class="inventory-add-grid">
@@ -156,11 +163,10 @@
   <div id="inventory-detail-overlay" class="inventory-overlay is-hidden">
     <div id="inventory-detail-panel" class="inventory-detail-panel"></div>
   </div>
-
 </div>
 
 <div id="inventory-table-card" class="inventory-card">
-    <div class="inventory-table-controls">
+  <div class="inventory-table-controls">
     <div class="inventory-table-actions-left">
       <button id="inventory-bulk-delete"
               type="button"
@@ -170,8 +176,20 @@
               hx-post="/inventory/bulk_delete"
               hx-target="#inventory-table-wrapper"
               hx-swap="innerHTML"
-              hx-include="#inventory-bulk-form, #inventory-filters, #include-notion-toggle">
+              hx-include="#inventory-bulk-form, #inventory-filters">
         Delete selected
+      </button>
+      <button id="inventory-clear-images"
+              type="button"
+              class="btn-secondary btn-danger-soft"
+              onclick="clearAllInventoryImages(this)">
+        Clear all images
+      </button>
+      <button id="inventory-purge-images"
+              type="button"
+              class="btn-secondary btn-danger-soft"
+              onclick="purgeInventoryImageTrash(this)">
+        Purge image trash
       </button>
     </div>
     <div class="inventory-table-actions-right">
@@ -181,6 +199,7 @@
               aria-label="Maximize table">+</button>
     </div>
   </div>
+
   <div class="inventory-card inventory-filters-card">
     <form id="inventory-filters" class="inventory-search-row">
       <input id="inventory-page" type="hidden" name="page" value="1">
@@ -196,7 +215,7 @@
                hx-trigger="input delay:300ms, search"
                hx-target="#inventory-table-wrapper"
                hx-swap="innerHTML"
-               hx-include="#inventory-filters, #include-notion-toggle"
+               hx-include="#inventory-filters"
                aria-label="Search inventory items">
       </div>
       <label class="inventory-search-case">
@@ -206,7 +225,7 @@
                 hx-trigger="change"
                 hx-target="#inventory-table-wrapper"
                 hx-swap="innerHTML"
-                hx-include="#inventory-filters, #include-notion-toggle">
+                hx-include="#inventory-filters">
           <option value="insensitive" {% if request.query_params.get("search_case", "insensitive") != "sensitive" %}selected{% endif %}>Case-insensitive</option>
           <option value="sensitive" {% if request.query_params.get("search_case") == "sensitive" %}selected{% endif %}>Case-sensitive</option>
         </select>
@@ -219,7 +238,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             <option value="missing">Missing / default</option>
             <option value="present">Has image</option>
@@ -232,7 +251,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.group_name %}
               <option value="{{ value }}">{{ value }}</option>
@@ -246,7 +265,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.collection_name %}
               <option value="{{ value }}">{{ value }}</option>
@@ -260,7 +279,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.collection_category %}
               <option value="{{ value }}">{{ value }}</option>
@@ -274,7 +293,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.occasion %}
               <option value="{{ value }}">{{ value }}</option>
@@ -288,7 +307,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.season %}
               <option value="{{ value }}">{{ value }}</option>
@@ -302,7 +321,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.holiday %}
               <option value="{{ value }}">{{ value }}</option>
@@ -316,7 +335,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.emotion %}
               <option value="{{ value }}">{{ value }}</option>
@@ -330,7 +349,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.color %}
               <option value="{{ value }}">{{ value }}</option>
@@ -344,7 +363,7 @@
                   hx-trigger="change"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             <option value="">All</option>
             {% for value in filter_options.event_name %}
               <option value="{{ value }}">{{ value }}</option>
@@ -359,7 +378,7 @@
                  hx-trigger="change"
                  hx-target="#inventory-table-wrapper"
                  hx-swap="innerHTML"
-                 hx-include="#inventory-filters, #include-notion-toggle">
+                 hx-include="#inventory-filters">
         </label>
         <label>
           Created to
@@ -369,12 +388,13 @@
                  hx-trigger="change"
                  hx-target="#inventory-table-wrapper"
                  hx-swap="innerHTML"
-                 hx-include="#inventory-filters, #include-notion-toggle">
+                 hx-include="#inventory-filters">
         </label>
       </div>
       <span id="inventory-search-count" class="inventory-muted">Showing filtered inventory</span>
     </form>
   </div>
+
   <div class="inventory-table-wrapper">
     <div id="inventory-search-empty" class="inventory-empty" hidden>
       No matching items. Try a different search.
@@ -384,10 +404,10 @@
         <tbody>
           <tr data-inventory-table-loader
               hx-get="/inventory/table"
-              hx-trigger="pref-init"
+              hx-trigger="load"
               hx-target="#inventory-table-wrapper"
               hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
+              hx-include="#inventory-filters">
             <td colspan="8" class="loading">
               Loading inventory…
             </td>
@@ -398,30 +418,12 @@
   </div>
 </div>
 
-
-<div class="inventory-card inventory-duplicates-card">
-  <div id="inventory-duplicates"
-       hx-get="/inventory/duplicates"
-       hx-trigger="load"
-       hx-target="#inventory-duplicates"
-       hx-swap="innerHTML"
-       hx-include="#include-notion-toggle"></div>
-</div>
-
-<!-- Cache Include Notion Inventory  -->
 <script>
-  // Refresh filter dropdown options from the server (keeps new group/collection/etc. values in sync)
   window.refreshInventoryFilters = function refreshInventoryFilters() {
     const filtersForm = document.getElementById("inventory-filters");
-    const includeNotionToggle = document.getElementById("include-notion-toggle");
     if (!filtersForm) return;
 
-    const params = new URLSearchParams();
-    if (includeNotionToggle && includeNotionToggle.checked) {
-      params.append("include_notion", "true");
-    }
-
-    fetch(`/inventory/filter_options?${params.toString()}`)
+    fetch("/inventory/filter_options")
       .then((res) => res.json())
       .then((data) => {
         const fields = [
@@ -457,59 +459,6 @@
       })
       .catch(() => {});
   };
-  (function () {
-    const STORAGE_KEY = "inventoryIncludeNotion";
-    const toggle = document.getElementById("include-notion-toggle");
-    const getTableLoader = () => document.querySelector("[data-inventory-table-loader]");
-    const summary = document.getElementById("inventory-summary");
-    const duplicates = document.getElementById("inventory-duplicates");
-
-    if (!toggle || !window.htmx) return;
-
-    const savedPref = localStorage.getItem(STORAGE_KEY);
-    if (savedPref !== null) {
-      toggle.checked = savedPref === "true";
-    }
-
-    const requestTable = () => {
-      const tableLoader = getTableLoader();
-      if (tableLoader) {
-        htmx.trigger(tableLoader, "pref-init");
-      }
-    };
-
-    const requestSummary = () => {
-      if (!summary) return;
-      htmx.ajax("GET", "/inventory/summary", {
-        target: "#inventory-summary",
-        swap: "innerHTML",
-        values: { include_notion: toggle.checked },
-      });
-    };
-
-    const requestDuplicates = () => {
-      if (!duplicates) return;
-      htmx.ajax("GET", "/inventory/duplicates", {
-        target: "#inventory-duplicates",
-        swap: "innerHTML",
-        values: { include_notion: toggle.checked },
-      });
-    };
-    // Expose for other scripts to refresh after data mutations
-    window.refreshInventoryDuplicates = requestDuplicates;
-
-    toggle.addEventListener("change", () => {
-      localStorage.setItem(STORAGE_KEY, String(toggle.checked));
-      requestTable();
-      requestSummary();
-      requestDuplicates();
-    });
-
-    // Trigger initial load using cached preference
-    requestTable();
-    requestSummary();
-    requestDuplicates();
-  })();
 </script>
 
 <script>
@@ -517,11 +466,10 @@
     const searchInput = document.getElementById("inventory-search");
     const countLabel = document.getElementById("inventory-search-count");
     const filtersForm = document.getElementById("inventory-filters");
-    const includeNotionToggle = document.getElementById("include-notion-toggle");
     const pageInput = document.getElementById("inventory-page");
 
     if (!searchInput || !countLabel) return;
-    // Capture user timezone offset (minutes to add to local to reach UTC) so date filters compare correctly
+
     const tzInput = document.getElementById("inventory-tz-offset");
     if (tzInput) {
       tzInput.value = String(new Date().getTimezoneOffset());
@@ -558,22 +506,12 @@
         }
         updateCount();
         window.refreshInventoryFilters?.();
-        window.refreshInventoryDuplicates?.();
       }
     });
-
-    document.body.addEventListener("inventory:refreshDuplicates", () => {
-      window.refreshInventoryDuplicates?.();
-    });
-
 
     document.body.addEventListener("inventory:refreshTable", () => {
       if (!filtersForm || !window.htmx) return;
-      const formData = new FormData(filtersForm);
-      if (includeNotionToggle && includeNotionToggle.checked) {
-        formData.append("include_notion", "true");
-      }
-      const values = Object.fromEntries(formData.entries());
+      const values = Object.fromEntries(new FormData(filtersForm).entries());
       window.htmx.ajax("GET", "/inventory/table", {
         target: "#inventory-table-wrapper",
         swap: "innerHTML",
@@ -585,7 +523,6 @@
   })();
 </script>
 
-<!-- Bulk selection + delete -->
 <script>
   (function () {
     const bulkButton = document.getElementById("inventory-bulk-delete");
@@ -628,7 +565,6 @@
   })();
 </script>
 
-<!-- Toggle Add Item Card -->
 <script>
   (function () {
     const toggleBtn = document.getElementById("inventory-add-toggle");
@@ -675,13 +611,10 @@
   })();
 </script>
 
-<!-- Detail Modal -->
 <script>
   (function () {
     const overlay = document.getElementById("inventory-detail-overlay");
     const panel = document.getElementById("inventory-detail-panel");
-    const includeNotionToggle = document.getElementById("include-notion-toggle");
-    const filtersForm = document.getElementById("inventory-filters");
 
     if (!overlay || !panel || !window.htmx) return;
 
@@ -721,26 +654,6 @@
 
     document.addEventListener("inventory:filtersUpdated", () => {
       window.refreshInventoryFilters?.();
-    });
-
-    document.addEventListener("htmx:afterSwap", (event) => {
-      if (event.target && event.target.id === "inventory-table-wrapper") {
-        window.refreshInventoryFilters?.();
-      }
-    });
-  })();
-</script>
-
-<script>
-  (function () {
-    document.body.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
-      if (!target.classList.contains("inventory-duplicate-dismiss")) return;
-      const group = target.closest("[data-duplicate-group]");
-      if (group) {
-        group.remove();
-      }
     });
   })();
 </script>

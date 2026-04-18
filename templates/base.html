@@ -36,6 +36,14 @@
           <span class="nav-icon icon-inventory"></span>
           <span class="nav-label">Inventory</span>
         </a>
+        <a class="sidebar-subnav-link"
+           hx-get="/inventory/duplicates/page"
+           hx-target="#content"
+           hx-swap="innerHtml"
+           title="Inventory Duplicates">
+          <span class="nav-icon icon-inventory"></span>
+          <span class="nav-label">Duplicates</span>
+        </a>
         <a hx-get="/history" hx-target="#content" hx-swap="innerHtml" title="History">
           <span class="nav-icon icon-history"></span>
           <span class="nav-label">History</span>

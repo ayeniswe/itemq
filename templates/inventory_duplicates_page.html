@@ -1,0 +1,48 @@
+{% block content %}
+
+<div class="inventory-header inventory-header-shell inventory-duplicates-page">
+  <div class="inventory-header-top">
+    <div class="inventory-header-intro">
+      <div class="inventory-subnav" aria-label="Inventory sections">
+        <button type="button"
+                class="inventory-subnav-link"
+                hx-get="/inventory"
+                hx-target="#content"
+                hx-swap="innerHTML">
+          Inventory
+        </button>
+        <button type="button" class="inventory-subnav-link is-active">
+          Duplicates
+        </button>
+      </div>
+      <h1>Duplicates</h1>
+      <p class="inventory-subtitle">
+        Review exact image matches, same-name overlaps, and close visual matches without crowding the main table.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="inventory-card inventory-duplicates-page-card">
+  <div id="inventory-duplicates"
+       hx-get="/inventory/duplicates"
+       hx-trigger="load"
+       hx-target="#inventory-duplicates"
+       hx-swap="innerHTML"></div>
+</div>
+
+<script>
+  (function () {
+    document.body.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.classList.contains("inventory-duplicate-dismiss")) return;
+      const group = target.closest("[data-duplicate-group]");
+      if (group) {
+        group.remove();
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

@@ -87,6 +87,14 @@ body {
   cursor: default;
 }
 
+.sidebar-nav .sidebar-subnav-link {
+  margin-left: 1.55rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  font-size: 0.88rem;
+  opacity: 0.88;
+}
+
 .sidebar-nav a:hover {
   background: rgba(99, 102, 241, 0.15);
   transform: translateX(2px);
@@ -165,6 +173,10 @@ main {
 .app.sidebar-collapsed .sidebar-nav a {
   justify-content: center;
   padding: 0.65rem;
+}
+
+.app.sidebar-collapsed .sidebar-nav .sidebar-subnav-link {
+  margin-left: 0;
 }
 
 .app.sidebar-collapsed .nav-label {
@@ -263,17 +275,93 @@ main {
   margin-bottom: 1.5rem;
 }
 
+.inventory-header-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .inventory-header-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.inventory-header-intro {
+  min-width: 0;
+  flex: 1 1 420px;
 }
 
 .inventory-header-actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.inventory-subnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.inventory-subnav-link {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.inventory-subnav-link:hover {
+  background: rgba(37, 99, 235, 0.1);
+  transform: translateY(-1px);
+}
+
+.inventory-subnav-link.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.14);
+}
+
+.inventory-subtitle {
+  margin: 0.35rem 0 0;
+  max-width: 48rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.inventory-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.inventory-toolbar-primary,
+.inventory-toolbar-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inventory-toolbar-secondary {
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .icon-btn {
@@ -340,7 +428,7 @@ main {
 
 .inventory-header h1 {
   font-size: 1.8rem;
-  margin-bottom: 0.25rem;
+  margin: 0;
   font-weight: 600;
 }
 
@@ -723,6 +811,17 @@ main {
   white-space: nowrap;
 }
 
+.btn-danger-soft {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
+.btn-danger-soft:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
 .inventory-image-slot {
   position: relative;
   width: 72px;
@@ -864,9 +963,9 @@ main {
 }
 
 .inventory-image-change {
-  position: absolute;
-  right: -10px;
-  bottom: -10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   border: 1px solid #e5e7eb;
@@ -876,13 +975,37 @@ main {
   color: #475569;
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.inventory-image-actions {
+  position: absolute;
+  right: -14px;
+  bottom: -12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.inventory-image-slot:hover .inventory-image-change,
-.inventory-image-slot:focus-within .inventory-image-change {
+.inventory-image-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #b91c1c;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+}
+
+.inventory-image-slot:hover .inventory-image-actions,
+.inventory-image-slot:focus-within .inventory-image-actions {
   opacity: 1;
   transform: translateY(0);
 }
@@ -1137,6 +1260,11 @@ main {
   overflow-x: auto; /* keep the block inside the page on narrow viewports */
 }
 
+.inventory-duplicates-page-card {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+}
+
 .inventory-history-card {
   margin-top: 1.25rem;
 }
@@ -1261,6 +1389,19 @@ main {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.5rem;
   width: 100%;
+}
+
+@media (max-width: 900px) {
+  .inventory-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .inventory-toolbar-primary,
+  .inventory-toolbar-secondary,
+  .inventory-subnav {
+    flex-wrap: wrap;
+  }
 }
 
 .inventory-duplicate-pair {

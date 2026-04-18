@@ -75,6 +75,16 @@ async def inventory(request: Request):
     )
 
 
+@app.get("/inventory/duplicates/page", response_class=HTMLResponse)
+async def inventory_duplicates_page(request: Request):
+    return templates.TemplateResponse(
+        "inventory_duplicates_page.html",
+        {
+            "request": request,
+        },
+    )
+
+
 @app.get("/plugins", response_class=HTMLResponse)
 async def plugins(request: Request):
     return templates.TemplateResponse("plugins.html", {"request": request})

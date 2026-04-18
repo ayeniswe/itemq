@@ -5,7 +5,7 @@
          hx-vals='{"page": "{{ page }}"}'
          hx-target="#inventory-table-wrapper"
          hx-swap="innerHTML"
-         hx-include="#inventory-filters, #include-notion-toggle"
+         hx-include="#inventory-filters"
          hidden></div>
   {% endif %}
   <input type="hidden" name="page" value="{{ page }}">
@@ -25,7 +25,7 @@
                     hx-vals='{"page": "{{ page - 1 }}"}'
                     hx-target="#inventory-table-wrapper"
                     hx-swap="innerHTML"
-                    hx-include="#inventory-filters, #include-notion-toggle">
+                    hx-include="#inventory-filters">
               Previous
             </button>
             <button type="button"
@@ -35,7 +35,7 @@
                     hx-vals='{"page": "{{ page + 1 }}"}'
                     hx-target="#inventory-table-wrapper"
                     hx-swap="innerHTML"
-                    hx-include="#inventory-filters, #include-notion-toggle">
+                    hx-include="#inventory-filters">
               Next
             </button>
           </div>

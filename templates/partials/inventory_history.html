@@ -6,14 +6,14 @@
               hx-post="/inventory/undo_action"
               hx-target="#inventory-table-wrapper"
               hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
+              hx-include="#inventory-filters">
         Undo
       </button>
       <button class="btn-secondary"
               hx-post="/inventory/redo_action"
               hx-target="#inventory-table-wrapper"
               hx-swap="innerHTML"
-              hx-include="#inventory-filters, #include-notion-toggle">
+              hx-include="#inventory-filters">
         Redo
       </button>
       <button class="btn-secondary"
@@ -40,7 +40,7 @@
                       hx-post="/inventory/redo_action"
                       hx-target="#inventory-table-wrapper"
                       hx-swap="innerHTML"
-                      hx-include="#inventory-filters, #include-notion-toggle"
+                      hx-include="#inventory-filters"
                       hx-vals='{"history_id": "{{ entry["id"] }}"}'>
                 Redo
               </button>
@@ -49,7 +49,7 @@
                       hx-post="/inventory/undo_action"
                       hx-target="#inventory-table-wrapper"
                       hx-swap="innerHTML"
-                      hx-include="#inventory-filters, #include-notion-toggle"
+                      hx-include="#inventory-filters"
                       hx-vals='{"history_id": "{{ entry["id"] }}"}'>
                 Undo
               </button>

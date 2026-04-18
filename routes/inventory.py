@@ -115,6 +115,82 @@ def _apply_state(state: dict) -> None:
         _restore_item(state)
 
 
+def _move_media_file_to_trash(image_path: str | None) -> None:
+    if not image_path:
+        return None
+    source = Path(image_path)
+    if not source.is_absolute():
+        source = MEDIA_ROOT / source
+    if not source.exists() or not source.is_file():
+        return None
+    trash_root = MEDIA_ROOT / ".trash"
+    trash_root.mkdir(parents=True, exist_ok=True)
+    destination = trash_root / f"{uuid.uuid4().hex}_{source.name}"
+    try:
+        source.replace(destination)
+    except Exception:
+        return None
+    return str(destination.relative_to(MEDIA_ROOT))
+
+
+def _restore_media_file_from_trash(
+    trash_image_path: str | None,
+    image_path: str | None,
+) -> bool:
+    if not trash_image_path or not image_path:
+        return False
+    source = MEDIA_ROOT / trash_image_path
+    destination = MEDIA_ROOT / image_path
+    if not source.exists() or not source.is_file():
+        return False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        source.replace(destination)
+    except Exception:
+        return False
+    return True
+
+
+def _apply_image_file_state(target_state: dict, current_state: dict | None = None) -> None:
+    target_image = target_state.get("image_path")
+    current_image = (current_state or {}).get("image_path")
+    target_trash = target_state.get("__trashed_image_path")
+    current_trash = (current_state or {}).get("__trashed_image_path")
+
+    if target_image and target_trash:
+        _restore_media_file_from_trash(target_trash, target_image)
+        return
+    if not target_image and current_image:
+        moved_path = _move_media_file_to_trash(current_image)
+        if moved_path and current_state is not None:
+            current_state["__trashed_image_path"] = moved_path
+        return
+    if not target_image and current_trash and current_state and current_state.get("image_path"):
+        moved_path = _move_media_file_to_trash(current_state["image_path"])
+        if moved_path:
+            current_state["__trashed_image_path"] = moved_path
+
+
+def _purge_media_trash() -> int:
+    trash_root = MEDIA_ROOT / ".trash"
+    if not trash_root.exists():
+        return 0
+    purged = 0
+    for path in trash_root.rglob("*"):
+        if path.is_file():
+            try:
+                path.unlink()
+                purged += 1
+            except Exception:
+                continue
+    for directory in sorted((p for p in trash_root.rglob("*") if p.is_dir()), reverse=True):
+        try:
+            directory.rmdir()
+        except OSError:
+            continue
+    return purged
+
+
 def _json_load(raw):
     if raw is None:
         return None
@@ -727,6 +803,200 @@ async def update_inventory_item_image(
     return response
 
 
+@router.post("/inventory/{item_id}/image/delete", response_class=HTMLResponse)
+async def delete_inventory_item_image(
+    request: Request,
+    item_id: int,
+    include_notion: bool = Form(False),
+    page: int = Form(1),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    image_status: str | None = Form(None),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
+):
+    before = get_inventory_item(item_id)
+    if before and before["image_path"]:
+        history_before = dict(before)
+        trashed_image_path = _move_media_file_to_trash(before["image_path"])
+        if trashed_image_path:
+            history_before["__trashed_image_path"] = trashed_image_path
+        update_inventory_image(item_id, None)
+        update_inventory_image_hash(item_id, None)
+        update_inventory_notion_sync_flags(
+            item_id,
+            notion_row_synced=bool(before["notion_row_synced"]),
+            notion_cover_synced=False,
+        )
+        update_inventory_notion_sync_status(item_id, "pending")
+        history_after = dict(get_inventory_item(item_id))
+        if trashed_image_path:
+            history_after["__trashed_image_path"] = trashed_image_path
+        add_history_entry(
+            action="update_image",
+            summary=f"Removed image for '{before['name']}'",
+            before_state=history_before,
+            after_state=history_after,
+        )
+
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        image_status=image_status,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=page)
+    response.headers["HX-Trigger"] = "inventory:filtersUpdated,inventory:refreshHistory"
+    return response
+
+
+@router.post("/inventory/images/clear_all", response_class=HTMLResponse)
+async def clear_all_inventory_images(
+    request: Request,
+    include_notion: bool = Form(False),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    image_status: str | None = Form(None),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
+):
+    total_local_items = count_inventory(include_notion=False)
+    local_rows = list_inventory(
+        include_notion=False,
+        filters={},
+        limit=max(total_local_items, 1),
+        offset=0,
+    )
+    changed_rows = 0
+    before_states: list[dict] = []
+    after_states: list[dict] = []
+    for row in local_rows:
+        item = dict(row)
+        if not item.get("image_path"):
+            continue
+        changed_rows += 1
+        history_before = dict(item)
+        trashed_image_path = _move_media_file_to_trash(item["image_path"])
+        if trashed_image_path:
+            history_before["__trashed_image_path"] = trashed_image_path
+        update_inventory_image(item["id"], None)
+        update_inventory_image_hash(item["id"], None)
+        update_inventory_notion_sync_flags(
+            item["id"],
+            notion_row_synced=bool(item["notion_row_synced"]),
+            notion_cover_synced=False,
+        )
+        update_inventory_notion_sync_status(item["id"], "pending")
+        history_after = dict(get_inventory_item(item["id"]))
+        if trashed_image_path:
+            history_after["__trashed_image_path"] = trashed_image_path
+        before_states.append(history_before)
+        after_states.append(history_after)
+
+    if before_states:
+        add_history_entry(
+            action="clear_all_images",
+            summary=f"Cleared images for {changed_rows} items",
+            before_state=before_states,
+            after_state=after_states,
+        )
+
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        image_status=image_status,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=1)
+    response.headers["HX-Trigger"] = "inventory:filtersUpdated"
+    return response
+
+
+@router.post("/inventory/images/purge_trash", response_class=HTMLResponse)
+async def purge_inventory_image_trash(
+    request: Request,
+    include_notion: bool = Form(False),
+    search: str | None = Form(None),
+    search_case: str | None = Form("insensitive"),
+    image_status: str | None = Form(None),
+    group_name: str | None = Form(None),
+    collection_name: str | None = Form(None),
+    collection_category: str | None = Form(None),
+    occasion: str | None = Form(None),
+    season: str | None = Form(None),
+    holiday: str | None = Form(None),
+    emotion: str | None = Form(None),
+    color: str | None = Form(None),
+    event_name: str | None = Form(None),
+    created_from: str | None = Form(None),
+    created_to: str | None = Form(None),
+    tz_offset_minutes: str | None = Form(None),
+):
+    _purge_media_trash()
+    filters = _build_filter_payload(
+        search=search,
+        search_case=search_case,
+        image_status=image_status,
+        group_name=group_name,
+        collection_name=collection_name,
+        collection_category=collection_category,
+        occasion=occasion,
+        season=season,
+        holiday=holiday,
+        emotion=emotion,
+        color=color,
+        event_name=event_name,
+        created_from=created_from,
+        created_to=created_to,
+        tz_offset_minutes=tz_offset_minutes,
+    )
+    response = _render_inventory_table(request, include_notion, filters, page=1)
+    response.headers["HX-Trigger"] = "inventory:filtersUpdated"
+    return response
+
+
 @router.post("/inventory/{item_id}/details", response_class=HTMLResponse)
 async def update_inventory_item_details(
     request: Request,
@@ -886,10 +1156,17 @@ async def undo_history_action(
     # Handle generic updates (name, quantity, details, image)
     elif action.startswith("update_") and before_state:
         target_id = before_state.get("id")
+        if action == "update_image":
+            _apply_image_file_state(before_state, after_state if isinstance(after_state, dict) else None)
         if target_id and get_inventory_item(target_id):
             update_inventory_full(target_id, before_state)
         else:
             _restore_item(before_state)
+    elif action == "clear_all_images" and before_state:
+        items = before_state if isinstance(before_state, list) else [before_state]
+        for item_state in items:
+            _apply_image_file_state(item_state)
+            _apply_state(item_state)
     else:
         raise HTTPException(status_code=400, detail="Unsupported action for undo.")
 
@@ -969,7 +1246,17 @@ async def redo_history_action(
             _delete_by_state(item_state)
     elif action.startswith("update_"):
         if after_state:
+            if action == "update_image":
+                _apply_image_file_state(after_state, before_state if isinstance(before_state, dict) else None)
             _apply_state(after_state)
+    elif action == "clear_all_images" and after_state:
+        before_items = before_state if isinstance(before_state, list) else [before_state]
+        after_items = after_state if isinstance(after_state, list) else [after_state]
+        for index, item_state in enumerate(after_items):
+            current_before = before_items[index] if index < len(before_items) else None
+            if isinstance(current_before, dict):
+                _apply_image_file_state(item_state, current_before)
+            _apply_state(item_state)
     else:
         raise HTTPException(status_code=400, detail="Unsupported action for redo.")
 

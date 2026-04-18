@@ -17,10 +17,21 @@
                width="36"
                height="36">
         </a>
-        <label class="inventory-image-change"
-               for="inventory-image-{{ item.id }}">
-          Change
-        </label>
+        <div class="inventory-image-actions">
+          <label class="inventory-image-change"
+                 for="inventory-image-{{ item.id }}">
+            Change
+          </label>
+          <button type="button"
+                  class="inventory-image-delete"
+                  hx-post="/inventory/{{ item.id }}/image/delete"
+                  hx-target="#inventory-table-wrapper"
+                  hx-swap="innerHTML"
+                  hx-confirm="Remove the image for {{ item.name }}?"
+                  hx-include="#inventory-filters">
+            Remove
+          </button>
+        </div>
       {% else %}
         <label class="inventory-image-placeholder"
                for="inventory-image-{{ item.id }}"
@@ -38,7 +49,7 @@
              hx-encoding="multipart/form-data"
              hx-target="#inventory-table-wrapper"
              hx-swap="innerHTML"
-             hx-include="#inventory-filters, #include-notion-toggle"
+             hx-include="#inventory-filters"
              hidden>
     </div>
   </td>
@@ -97,7 +108,7 @@
                     hx-post="/inventory/{{ item.id }}/sync_to_notion"
                     hx-target="#inventory-table-wrapper"
                     hx-swap="innerHTML"
-                    hx-include="#inventory-filters, #include-notion-toggle">
+                    hx-include="#inventory-filters">
               Resync to Notion
             </button>
           {% endif %}
@@ -106,7 +117,7 @@
                   hx-delete="/inventory/{{ item.id }}"
                   hx-target="#inventory-table-wrapper"
                   hx-swap="innerHTML"
-                  hx-include="#inventory-filters, #include-notion-toggle">
+                  hx-include="#inventory-filters">
             Delete
           </button>
         </div>

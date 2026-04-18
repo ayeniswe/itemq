@@ -59,9 +59,9 @@ class InventoryDB(Protocol):
 
     def update_inventory_name(self, item_id: int, name: str) -> None: ...
 
-    def update_inventory_image(self, item_id: int, image_path: str) -> None: ...
+    def update_inventory_image(self, item_id: int, image_path: Optional[str]) -> None: ...
 
-    def update_inventory_image_hash(self, item_id: int, image_hash: str) -> None: ...
+    def update_inventory_image_hash(self, item_id: int, image_hash: Optional[str]) -> None: ...
 
     def update_inventory_notion_page_id(
         self,
@@ -644,14 +644,14 @@ class SQLiteInventoryDB:
         )
         self.conn.commit()
 
-    def update_inventory_image(self, item_id: int, image_path: str):
+    def update_inventory_image(self, item_id: int, image_path: Optional[str]):
         self.conn.execute(
             "UPDATE inventory SET image_path = ? WHERE id = ?",
             (image_path, item_id),
         )
         self.conn.commit()
 
-    def update_inventory_image_hash(self, item_id: int, image_hash: str):
+    def update_inventory_image_hash(self, item_id: int, image_hash: Optional[str]):
         self.conn.execute(
             "UPDATE inventory SET image_hash = ? WHERE id = ?",
             (image_hash, item_id),
@@ -1333,11 +1333,11 @@ def update_inventory_name(item_id: int, name: str):
     get_db().update_inventory_name(item_id, name)
 
 
-def update_inventory_image(item_id: int, image_path: str):
+def update_inventory_image(item_id: int, image_path: Optional[str]):
     get_db().update_inventory_image(item_id, image_path)
 
 
-def update_inventory_image_hash(item_id: int, image_hash: str):
+def update_inventory_image_hash(item_id: int, image_hash: Optional[str]):
     get_db().update_inventory_image_hash(item_id, image_hash)
 
 
