@@ -157,6 +157,30 @@
     <div id="inventory-detail-panel" class="inventory-detail-panel"></div>
   </div>
 
+</div>
+
+<div id="inventory-table-card" class="inventory-card">
+    <div class="inventory-table-controls">
+    <div class="inventory-table-actions-left">
+      <button id="inventory-bulk-delete"
+              type="button"
+              class="btn-secondary"
+              data-bulk-delete
+              hidden
+              hx-post="/inventory/bulk_delete"
+              hx-target="#inventory-table-wrapper"
+              hx-swap="innerHTML"
+              hx-include="#inventory-bulk-form, #inventory-filters, #include-notion-toggle">
+        Delete selected
+      </button>
+    </div>
+    <div class="inventory-table-actions-right">
+      <button id="inventory-table-size-toggle"
+              type="button"
+              class="inventory-table-toggle"
+              aria-label="Maximize table">+</button>
+    </div>
+  </div>
   <div class="inventory-card inventory-filters-card">
     <form id="inventory-filters" class="inventory-search-row">
       <input id="inventory-page" type="hidden" name="page" value="1">
@@ -350,30 +374,6 @@
       </div>
       <span id="inventory-search-count" class="inventory-muted">Showing filtered inventory</span>
     </form>
-  </div>
-</div>
-
-<div id="inventory-table-card" class="inventory-card">
-  <div class="inventory-table-controls">
-    <div class="inventory-table-actions-left">
-      <button id="inventory-bulk-delete"
-              type="button"
-              class="btn-secondary"
-              data-bulk-delete
-              hidden
-              hx-post="/inventory/bulk_delete"
-              hx-target="#inventory-table-wrapper"
-              hx-swap="innerHTML"
-              hx-include="#inventory-bulk-form, #inventory-filters, #include-notion-toggle">
-        Delete selected
-      </button>
-    </div>
-    <div class="inventory-table-actions-right">
-      <button id="inventory-table-size-toggle"
-              type="button"
-              class="inventory-table-toggle"
-              aria-label="Maximize table">+</button>
-    </div>
   </div>
   <div class="inventory-table-wrapper">
     <div id="inventory-search-empty" class="inventory-empty" hidden>

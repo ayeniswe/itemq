@@ -52,13 +52,8 @@ CREATE TABLE IF NOT EXISTS inventory_history (
     undone_at DATETIME
 );
 
--- =========================
--- MIGRATIONS
--- =========================
-
--- [2026-04-18] add_notion_sync_fields_to_inventory
--- Adds notion_row_synced, notion_cover_synced, and notion_sync_status columns
-
-ALTER TABLE inventory ADD COLUMN notion_row_synced INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE inventory ADD COLUMN notion_cover_synced INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE inventory ADD COLUMN notion_sync_status TEXT NOT NULL DEFAULT 'pending';
+-- Tracks applied schema migrations
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    name TEXT PRIMARY KEY,
+    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
