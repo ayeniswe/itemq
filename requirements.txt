@@ -1,5 +1,6 @@
-fastapi
-uvicorn
+fastapi==0.128.0
+starlette==0.37.2
+uvicorn[standard]
 pydantic
 notion-client
 python-barcode
