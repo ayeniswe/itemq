@@ -201,9 +201,25 @@
   };
 
   const closeBarcodeFilterDrawer = () => {
-    document.querySelectorAll(".barcode-filter-drawer[open]").forEach((drawer) => {
-      drawer.open = false;
+    document.querySelectorAll(".barcode-filter-dialog[open]").forEach((dialog) => {
+      dialog.close();
     });
+    const trigger = document.getElementById("barcode-filter-trigger");
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "false");
+    }
+  };
+
+  const openBarcodeFilterDrawer = () => {
+    const dialog = document.getElementById("barcode-filter-dialog");
+    const trigger = document.getElementById("barcode-filter-trigger");
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    if (!dialog.open) {
+      dialog.showModal();
+    }
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "true");
+    }
   };
 
   const refreshPreview = async () => {
@@ -422,7 +438,15 @@
   document.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (!target.closest(".barcode-filter-drawer")) {
+    if (target.closest("#barcode-filter-trigger")) {
+      openBarcodeFilterDrawer();
+      return;
+    }
+    if (target.closest("#barcode-filter-close")) {
+      closeBarcodeFilterDrawer();
+      return;
+    }
+    if (!target.closest(".barcode-filter-dialog")) {
       closeBarcodeFilterDrawer();
     }
     if (target.id !== "select-all-items") return;
@@ -531,6 +555,16 @@
       closeBarcodeFilterDrawer();
     }
   });
+
+  document.addEventListener("close", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLDialogElement && target.id === "barcode-filter-dialog") {
+      const trigger = document.getElementById("barcode-filter-trigger");
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      }
+    }
+  }, true);
 
   document.addEventListener(
     "wheel",

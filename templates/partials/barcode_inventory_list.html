@@ -41,16 +41,26 @@
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
     </label>
-    <details class="barcode-filter-drawer">
-      <summary>
+    <div class="barcode-filter-drawer">
+      <button type="button"
+              class="barcode-filter-trigger"
+              id="barcode-filter-trigger"
+              aria-label="Open advanced filters"
+              aria-haspopup="dialog"
+              aria-expanded="false">
         <span class="barcode-filter-summary-meta">
           <span class="barcode-filter-trigger-icon" aria-hidden="true"></span>
           {% if has_advanced_filters %}
             <span class="barcode-filter-badge">{{ active_advanced_count }} active</span>
           {% endif %}
         </span>
-      </summary>
-      <div class="barcode-filter-drawer-grid">
+      </button>
+      <dialog class="barcode-filter-dialog" id="barcode-filter-dialog">
+        <div class="barcode-filter-drawer-grid">
+          <div class="barcode-filter-dialog-header">
+            <h4>Filters</h4>
+            <button type="button" class="barcode-filter-close" id="barcode-filter-close" aria-label="Close filters">Close</button>
+          </div>
         <label class="barcode-filter-image">
           Image
           <select name="image_status"
@@ -212,8 +222,9 @@
                  hx-swap="innerHTML"
                  hx-include="#barcode-selection">
         </label>
-      </div>
-    </details>
+        </div>
+      </dialog>
+    </div>
   </div>
 
   {% if items %}
