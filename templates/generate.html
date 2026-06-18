@@ -1,74 +1,65 @@
 {% block content %}
 
-<div class="generate-header">
-  <h1>Generate Barcodes</h1>
-  <p class="subtitle">Select inventory items, generate labels, and print when ready.</p>
-</div>
-
-<div class="generate-grid generate-grid-wide">
-  <div class="generate-card">
-    <h3>Inventory Selection</h3>
-    <p class="card-hint">Choose items and a barcode style to print. Quantities default to 0 so you stay in control.</p>
-
-    <form id="barcode-selection"
-          class="generate-form barcode-selection-form"
-          hx-post="/generate/preview"
-          hx-target="#barcode-preview"
-          hx-swap="innerHTML"
-          hx-trigger="change delay:250ms, submit">
-      <label>
-        Barcode format
-        <select name="format">
-          {% for fmt in formats %}
-            <option value="{{ fmt.key }}"
-                    {% if fmt.key == selected_format %}selected{% endif %}>
-              {{ fmt.label }}
-            </option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <div id="barcode-inventory-list">
-        {% include "partials/barcode_inventory_list.html" %}
-      </div>
-      <div id="barcode-selection-state" hidden></div>
-
-      <div id="barcode-status-message" class="barcode-status-message" aria-live="polite"></div>
-
-      <div class="generate-actions">
-        <button type="button"
-                class="btn-primary"
-                id="generate-labels"
-                hx-post="/generate/create"
-                hx-target="#barcode-preview"
-                hx-swap="innerHTML"
-                hx-include="#barcode-selection">
-          Generate labels
-        </button>
-        <button type="button" class="btn-secondary" id="print-barcodes" disabled>
-          Print
-        </button>
-      </div>
-
-      <div class="notion-action">
-        {% if notion_enabled %}
-          <p class="notion-hint">
-            Notion inventory is connected and included in selections.
-          </p>
-        {% else %}
-          <p class="notion-hint">
-            Connect the Notion plugin to include remote inventory rows.
-          </p>
-        {% endif %}
-      </div>
-    </form>
+<div class="generate-page">
+  <div class="generate-header">
+    <h1>Generate Barcodes</h1>
   </div>
 
-  <div class="generate-card">
-    <h3>Preview</h3>
-    <p class="card-hint">Preview barcode output before printing.</p>
-    <div id="barcode-preview" class="results-card">
-      {% include "partials/barcode_preview.html" %}
+  <div class="generate-grid generate-grid-wide generate-workspace">
+    <div class="generate-card generate-selection-panel">
+      <div class="generate-selection-heading">
+        <h3>Inventory Selection</h3>
+        <div class="generate-actions generate-actions-top">
+          <button type="button"
+                  class="btn-primary"
+                  id="generate-labels"
+                  hx-post="/generate/create"
+                  hx-target="#barcode-preview"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            Generate labels
+          </button>
+          <button type="button" class="btn-secondary" id="print-barcodes" disabled>
+            Print
+          </button>
+        </div>
+      </div>
+
+      <form id="barcode-selection" class="generate-form barcode-selection-form">
+        <div class="barcode-controls-row">
+          <label class="barcode-format-field">
+            Barcode format
+            <select name="format">
+              {% for fmt in formats %}
+                <option value="{{ fmt.key }}"
+                        {% if fmt.key == selected_format %}selected{% endif %}>
+                  {{ fmt.label }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+
+        <div id="barcode-inventory-list" class="barcode-list-shell">
+          {% include "partials/barcode_inventory_list.html" %}
+        </div>
+        <div id="barcode-selection-state" hidden></div>
+
+        <div class="barcode-selection-footer">
+          <div id="barcode-status-message" class="barcode-status-message" aria-live="polite"></div>
+        </div>
+      </form>
+    </div>
+
+    <div class="generate-card generate-preview-panel">
+      <div class="generate-preview-heading">
+        <div>
+          <h3>Preview</h3>
+        </div>
+      </div>
+      <div id="barcode-preview" class="results-card barcode-preview-shell">
+        {% include "partials/barcode_preview.html" %}
+      </div>
     </div>
   </div>
 </div>
@@ -93,6 +84,8 @@
   ]);
 
   const selectedItemState = new Map();
+  let previewRefreshTimer = null;
+  let previewRequestController = null;
 
   const getTotalItems = () => {
     const totalInput = document.getElementById("barcode-total-items");
@@ -107,23 +100,6 @@
     selectAllButton.textContent = allSelected ? "Clear all" : "Select all";
     selectAllButton.disabled = totalItems === 0;
   };
-
-  document.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (!target.classList.contains("barcode-item-checkbox")) return;
-    updateSelectAllLabel();
-  });
-
-  // Keep focus on barcode search field after list updates
-  document.body.addEventListener("htmx:afterSwap", (event) => {
-    if (event.target && event.target.id === "barcode-inventory-list") {
-      const searchInput = document.getElementById("barcode-inventory-search");
-      if (searchInput instanceof HTMLElement) {
-        searchInput.focus({ preventScroll: true });
-      }
-    }
-  });
 
   const buildFilterParams = (form) => {
     const params = new URLSearchParams();
@@ -197,6 +173,94 @@
     });
   };
 
+  const preloadBarcodeImages = () => {
+    const images = Array.from(document.querySelectorAll("#barcode-preview img"));
+    if (!images.length) {
+      return Promise.resolve();
+    }
+    return Promise.all(images.map((image) => {
+      image.loading = "eager";
+      if (image.complete && image.naturalWidth > 0) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+    }));
+  };
+
+  const getSelection = () => {
+    const selected = Array.from(selectedItemState.entries()).map(([itemId, state]) => ({
+      value: itemId,
+      hasLabel: state.hasLabel,
+      quantity: state.quantity,
+    }));
+    const missing = selected.filter((item) => !item.hasLabel);
+    return { selected, missing };
+  };
+
+  const closeBarcodeFilterDrawer = () => {
+    document.querySelectorAll(".barcode-filter-dialog[open]").forEach((dialog) => {
+      dialog.close();
+    });
+    const trigger = document.getElementById("barcode-filter-trigger");
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "false");
+    }
+  };
+
+  const openBarcodeFilterDrawer = () => {
+    const dialog = document.getElementById("barcode-filter-dialog");
+    const trigger = document.getElementById("barcode-filter-trigger");
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    if (!dialog.open) {
+      dialog.showModal();
+    }
+    if (trigger) {
+      trigger.setAttribute("aria-expanded", "true");
+    }
+  };
+
+  const refreshPreview = async () => {
+    const form = document.getElementById("barcode-selection");
+    const preview = document.getElementById("barcode-preview");
+    if (!(form instanceof HTMLFormElement) || !(preview instanceof HTMLElement)) return;
+
+    cacheSelectionFromVisibleRows();
+    if (previewRequestController) {
+      previewRequestController.abort();
+    }
+    const controller = new AbortController();
+    previewRequestController = controller;
+
+    try {
+      const response = await fetch("/generate/preview", {
+        method: "POST",
+        body: new FormData(form),
+        signal: controller.signal,
+      });
+      if (!response.ok) return;
+      preview.innerHTML = await response.text();
+      await preloadBarcodeImages();
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.error(error);
+      }
+    } finally {
+      if (previewRequestController === controller) {
+        previewRequestController = null;
+      }
+    }
+  };
+
+  const queuePreviewRefresh = (delay = 120) => {
+    window.clearTimeout(previewRefreshTimer);
+    previewRefreshTimer = window.setTimeout(() => {
+      refreshPreview();
+    }, delay);
+  };
+
   const selectAllAcrossPages = async () => {
     const form = document.getElementById("barcode-selection");
     const selectAllButton = document.getElementById("select-all-items");
@@ -227,65 +291,13 @@
       applySelectionToVisibleRows();
       syncHiddenSelectionState();
       updateActionState();
+      queuePreviewRefresh(0);
     } finally {
       if (selectAllButton) {
         selectAllButton.disabled = false;
       }
       updateSelectAllLabel();
     }
-  };
-
-  document.addEventListener("click", async (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (target.id !== "select-all-items") return;
-    event.preventDefault();
-    const totalItems = getTotalItems();
-    const allSelected = totalItems > 0 && selectedItemState.size >= totalItems;
-    if (allSelected) {
-      selectedItemState.clear();
-      document.querySelectorAll(".barcode-item-checkbox").forEach((checkbox) => {
-        checkbox.checked = false;
-        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
-        input.value = "0";
-      });
-      syncHiddenSelectionState();
-      updateActionState();
-      updateSelectAllLabel();
-      return;
-    }
-    await selectAllAcrossPages();
-  });
-
-  const preloadBarcodeImages = () => {
-    const images = Array.from(document.querySelectorAll("#barcode-preview img"));
-    if (!images.length) {
-      return Promise.resolve();
-    }
-    return Promise.all(images.map((image) => {
-      image.loading = "eager";
-      if (image.complete && image.naturalWidth > 0) {
-        return Promise.resolve();
-      }
-      return new Promise((resolve) => {
-        image.addEventListener("load", resolve, { once: true });
-        image.addEventListener("error", resolve, { once: true });
-      });
-    }));
-  };
-
-  const getSelection = () => {
-    const selected = Array.from(selectedItemState.entries()).map(([itemId, state]) => ({
-      value: itemId,
-      hasLabel: state.hasLabel,
-      quantity: state.quantity,
-    }));
-    const missing = selected.filter(
-      (item) => !item.hasLabel
-    );
-    return { selected, missing };
   };
 
   const handlePrint = async () => {
@@ -315,19 +327,15 @@
       return;
     }
     if (statusMessage) {
-      statusMessage.innerHTML = "";
-    }
-    if (statusMessage) {
       statusMessage.innerHTML = "<div class=\"barcode-warning\">Creating PDF sheet...</div>";
     }
     if (printButton) {
       printButton.disabled = true;
     }
     try {
-      const formData = new FormData(form);
       const response = await fetch("/generate/print", {
         method: "POST",
-        body: formData,
+        body: new FormData(form),
       });
       if (!response.ok) {
         const html = await response.text();
@@ -384,8 +392,7 @@
     const generateButton = document.getElementById("generate-labels");
     const statusMessage = document.getElementById("barcode-status-message");
     if (!printButton || !generateButton) return;
-    const selection = getSelection();
-    const { selected, missing } = selection;
+    const { selected, missing } = getSelection();
     const hasSelection = selected.length > 0;
     const hasZeroQuantity = selected.some((item) => Number(item.quantity || 0) <= 0);
     generateButton.disabled = !hasSelection;
@@ -409,9 +416,7 @@
     const printButton = document.getElementById("print-barcodes");
     if (!printButton || printButton.dataset.bound === "true") return;
     printButton.dataset.bound = "true";
-    printButton.addEventListener("click", () => {
-      handlePrint();
-    });
+    printButton.addEventListener("click", handlePrint);
   };
 
   const setBarcodeTzOffset = (root = document) => {
@@ -430,10 +435,45 @@
     setupPrintButton();
   });
 
+  document.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest("#barcode-filter-trigger")) {
+      openBarcodeFilterDrawer();
+      return;
+    }
+    if (target.closest("#barcode-filter-close")) {
+      closeBarcodeFilterDrawer();
+      return;
+    }
+    if (!target.closest(".barcode-filter-dialog")) {
+      closeBarcodeFilterDrawer();
+    }
+    if (target.id !== "select-all-items") return;
+    event.preventDefault();
+    const totalItems = getTotalItems();
+    const allSelected = totalItems > 0 && selectedItemState.size >= totalItems;
+    if (allSelected) {
+      selectedItemState.clear();
+      document.querySelectorAll(".barcode-item-checkbox").forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+      document.querySelectorAll(".barcode-quantity input").forEach((input) => {
+        input.value = "0";
+      });
+      syncHiddenSelectionState();
+      updateActionState();
+      updateSelectAllLabel();
+      queuePreviewRefresh(0);
+      return;
+    }
+    await selectAllAcrossPages();
+  });
+
   document.body.addEventListener("htmx:beforeRequest", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    if (target.id === "barcode-selection" || target.id === "generate-labels") {
+    if (target.id === "generate-labels") {
       cacheSelectionFromVisibleRows();
       return;
     }
@@ -442,6 +482,7 @@
       syncHiddenSelectionState();
       updateActionState();
       updateSelectAllLabel();
+      queuePreviewRefresh(0);
     }
   });
 
@@ -449,12 +490,15 @@
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target.id === "barcode-inventory-list") {
+      const searchInput = document.getElementById("barcode-inventory-search");
+      if (searchInput instanceof HTMLElement) {
+        searchInput.focus({ preventScroll: true });
+      }
       applySelectionToVisibleRows(target);
       setBarcodeTzOffset(target);
+      queuePreviewRefresh(0);
     }
-    const totalInput = (target instanceof HTMLElement && target.querySelector)
-      ? target.querySelector("#barcode-total-items")
-      : document.getElementById("barcode-total-items");
+    const totalInput = target.querySelector ? target.querySelector("#barcode-total-items") : null;
     if (totalInput instanceof HTMLInputElement) {
       totalInput.value = totalInput.value || "0";
     }
@@ -468,9 +512,8 @@
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target.classList.contains("barcode-item-checkbox")) {
-      const checkbox = target;
-      if (checkbox instanceof HTMLInputElement && checkbox.checked) {
-        const row = checkbox.closest(".barcode-inventory-row");
+      if (target instanceof HTMLInputElement && target.checked) {
+        const row = target.closest(".barcode-inventory-row");
         const quantityInput = row?.querySelector(".barcode-quantity input");
         if (quantityInput instanceof HTMLInputElement && Number(quantityInput.value || "0") <= 0) {
           quantityInput.value = "1";
@@ -478,15 +521,23 @@
       }
       cacheSelectionFromVisibleRows();
       updateActionState();
+      updateSelectAllLabel();
+      queuePreviewRefresh();
       return;
     }
     if (target.closest(".barcode-quantity")) {
       cacheSelectionFromVisibleRows();
       updateActionState();
+      queuePreviewRefresh();
       return;
     }
     if (target.id === "select-all-items") {
       cacheSelectionFromVisibleRows();
+      queuePreviewRefresh();
+      return;
+    }
+    if (target.getAttribute("name") === "format") {
+      queuePreviewRefresh();
     }
   });
 
@@ -496,7 +547,24 @@
     if (!target.closest(".barcode-quantity")) return;
     cacheSelectionFromVisibleRows();
     updateActionState();
+    queuePreviewRefresh();
   });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeBarcodeFilterDrawer();
+    }
+  });
+
+  document.addEventListener("close", (event) => {
+    const target = event.target;
+    if (target instanceof HTMLDialogElement && target.id === "barcode-filter-dialog") {
+      const trigger = document.getElementById("barcode-filter-trigger");
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      }
+    }
+  }, true);
 
   document.addEventListener(
     "wheel",
@@ -530,6 +598,7 @@
       syncHiddenSelectionState();
       updateActionState();
       updateSelectAllLabel();
+      preloadBarcodeImages();
     }
   });
 </script>

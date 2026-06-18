@@ -1,5 +1,21 @@
 <div class="barcode-inventory">
   <input type="hidden" id="barcode-total-items" value="{{ total_items }}">
+  <input type="hidden" name="current_page" value="{{ page }}">
+  {% set has_advanced_filters = filters.image_status or filters.group_name or filters.collection_name or filters.collection_category or filters.occasion or filters.season or filters.holiday or filters.emotion or filters.color or filters.event_name or filters.created_from or filters.created_to %}
+  {% set active_advanced_count = [
+    filters.image_status,
+    filters.group_name,
+    filters.collection_name,
+    filters.collection_category,
+    filters.occasion,
+    filters.season,
+    filters.holiday,
+    filters.emotion,
+    filters.color,
+    filters.event_name,
+    filters.created_from,
+    filters.created_to
+  ]|select|list|length %}
   <div class="barcode-inventory-header">
     <span>Inventory items</span>
     <div class="barcode-inventory-actions">
@@ -12,8 +28,8 @@
 
   <div class="barcode-filters">
     <input type="hidden" id="barcode-tz-offset" name="tz_offset_minutes" value="{{ filters.tz_offset_minutes or '' }}">
-    <label>
-      Search
+    <label class="barcode-filter-search" aria-label="Search inventory">
+      <span class="barcode-filter-search-icon" aria-hidden="true"></span>
       <input type="search"
              id="barcode-inventory-search"
              name="search"
@@ -25,167 +41,190 @@
              hx-swap="innerHTML"
              hx-include="#barcode-selection">
     </label>
-    <label>
-      Image
-      <select name="image_status"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        <option value="missing" {% if filters.image_status == "missing" %}selected{% endif %}>Missing / default</option>
-        <option value="present" {% if filters.image_status == "present" %}selected{% endif %}>Has image</option>
-      </select>
-    </label>
-    <label>
-      Group name
-      <select name="group_name"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.group_name %}
-          <option value="{{ value }}" {% if filters.group_name == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Collection
-      <select name="collection_name"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.collection_name %}
-          <option value="{{ value }}" {% if filters.collection_name == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Collection category
-      <select name="collection_category"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.collection_category %}
-          <option value="{{ value }}" {% if filters.collection_category == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Occasion
-      <select name="occasion"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.occasion %}
-          <option value="{{ value }}" {% if filters.occasion == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Season
-      <select name="season"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.season %}
-          <option value="{{ value }}" {% if filters.season == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Holiday
-      <select name="holiday"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.holiday %}
-          <option value="{{ value }}" {% if filters.holiday == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Emotion
-      <select name="emotion"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.emotion %}
-          <option value="{{ value }}" {% if filters.emotion == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Color
-      <select name="color"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.color %}
-          <option value="{{ value }}" {% if filters.color == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Event
-      <select name="event_name"
-              hx-get="/generate/inventory_list"
-              hx-trigger="change"
-              hx-target="#barcode-inventory-list"
-              hx-swap="innerHTML"
-              hx-include="#barcode-selection">
-        <option value="">All</option>
-        {% for value in filter_options.event_name %}
-          <option value="{{ value }}" {% if filters.event_name == value %}selected{% endif %}>{{ value }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    <label>
-      Created from
-      <input type="datetime-local"
-             name="created_from"
-             value="{{ filters.created_from_display or '' }}"
-             hx-get="/generate/inventory_list"
-             hx-trigger="change"
-             hx-target="#barcode-inventory-list"
-             hx-swap="innerHTML"
-             hx-include="#barcode-selection">
-    </label>
-    <label>
-      Created to
-      <input type="datetime-local"
-             name="created_to"
-             value="{{ filters.created_to_display or '' }}"
-             hx-get="/generate/inventory_list"
-             hx-trigger="change"
-             hx-target="#barcode-inventory-list"
-             hx-swap="innerHTML"
-             hx-include="#barcode-selection">
-    </label>
+    <div class="barcode-filter-drawer">
+      <button type="button"
+              class="barcode-filter-trigger"
+              id="barcode-filter-trigger"
+              aria-label="Open advanced filters"
+              aria-haspopup="dialog"
+              aria-expanded="false">
+        <span class="barcode-filter-summary-meta">
+          <span class="barcode-filter-trigger-icon" aria-hidden="true"></span>
+          {% if has_advanced_filters %}
+            <span class="barcode-filter-badge">{{ active_advanced_count }} active</span>
+          {% endif %}
+        </span>
+      </button>
+      <dialog class="barcode-filter-dialog" id="barcode-filter-dialog">
+        <div class="barcode-filter-drawer-grid">
+          <div class="barcode-filter-dialog-header">
+            <h4>Filters</h4>
+            <button type="button" class="barcode-filter-close" id="barcode-filter-close" aria-label="Close filters">Close</button>
+          </div>
+        <label class="barcode-filter-image">
+          Image
+          <select name="image_status"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            <option value="missing" {% if filters.image_status == "missing" %}selected{% endif %}>Missing / default</option>
+            <option value="present" {% if filters.image_status == "present" %}selected{% endif %}>Has image</option>
+          </select>
+        </label>
+        <label>
+          Group name
+          <select name="group_name"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.group_name %}
+              <option value="{{ value }}" {% if filters.group_name == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Collection
+          <select name="collection_name"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.collection_name %}
+              <option value="{{ value }}" {% if filters.collection_name == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Collection category
+          <select name="collection_category"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.collection_category %}
+              <option value="{{ value }}" {% if filters.collection_category == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Occasion
+          <select name="occasion"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.occasion %}
+              <option value="{{ value }}" {% if filters.occasion == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Season
+          <select name="season"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.season %}
+              <option value="{{ value }}" {% if filters.season == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Holiday
+          <select name="holiday"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.holiday %}
+              <option value="{{ value }}" {% if filters.holiday == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Emotion
+          <select name="emotion"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.emotion %}
+              <option value="{{ value }}" {% if filters.emotion == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Color
+          <select name="color"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.color %}
+              <option value="{{ value }}" {% if filters.color == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Event
+          <select name="event_name"
+                  hx-get="/generate/inventory_list"
+                  hx-trigger="change"
+                  hx-target="#barcode-inventory-list"
+                  hx-swap="innerHTML"
+                  hx-include="#barcode-selection">
+            <option value="">All</option>
+            {% for value in filter_options.event_name %}
+              <option value="{{ value }}" {% if filters.event_name == value %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Created from
+          <input type="datetime-local"
+                 name="created_from"
+                 value="{{ filters.created_from_display or '' }}"
+                 hx-get="/generate/inventory_list"
+                 hx-trigger="change"
+                 hx-target="#barcode-inventory-list"
+                 hx-swap="innerHTML"
+                 hx-include="#barcode-selection">
+        </label>
+        <label>
+          Created to
+          <input type="datetime-local"
+                 name="created_to"
+                 value="{{ filters.created_to_display or '' }}"
+                 hx-get="/generate/inventory_list"
+                 hx-trigger="change"
+                 hx-target="#barcode-inventory-list"
+                 hx-swap="innerHTML"
+                 hx-include="#barcode-selection">
+        </label>
+        </div>
+      </dialog>
+    </div>
   </div>
 
   {% if items %}

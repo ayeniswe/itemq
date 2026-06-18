@@ -170,6 +170,27 @@ async def _parse_generation_form(request: Request) -> tuple[list[int], dict[int,
     return item_ids, quantities, normalized_format
 
 
+def _filters_from_form(form) -> dict[str, str | None]:
+    filters = _build_filter_payload(
+        search=form.get("search"),
+        search_case=form.get("search_case", "insensitive"),
+        image_status=form.get("image_status"),
+        group_name=form.get("group_name"),
+        collection_name=form.get("collection_name"),
+        collection_category=form.get("collection_category"),
+        occasion=form.get("occasion"),
+        season=form.get("season"),
+        holiday=form.get("holiday"),
+        emotion=form.get("emotion"),
+        color=form.get("color"),
+        event_name=form.get("event_name"),
+        created_from=form.get("created_from"),
+        created_to=form.get("created_to"),
+        tz_offset_minutes=form.get("tz_offset_minutes"),
+    )
+    return _with_display_datetimes(filters)
+
+
 def _expand_barcodes_for_print(barcodes: list[dict]) -> list[dict]:
     expanded = []
     for barcode in sorted(barcodes, key=lambda entry: entry.get("barcode", "").casefold()):
@@ -315,7 +336,24 @@ async def generate_preview(
 async def generate_create(
     request: Request,
 ):
-    item_ids, quantities, normalized_format = await _parse_generation_form(request)
+    form = await request.form()
+    item_ids: list[int] = []
+    seen_ids: set[int] = set()
+    for value in form.getlist("item_ids"):
+        item_id = int(value)
+        if item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+        item_ids.append(item_id)
+    quantities = {}
+    for item_id in item_ids:
+        raw_value = form.get(f"quantity_{item_id}", "0")
+        try:
+            parsed = int(raw_value)
+        except (TypeError, ValueError):
+            parsed = 0
+        quantities[item_id] = max(parsed, 0)
+    normalized_format = normalize_format(form.get("format", "code128"))
     items = get_inventory_items_with_labels_by_ids(item_ids)
     output_dir = MEDIA_ROOT / "barcodes"
     entries = []
@@ -349,12 +387,16 @@ async def generate_create(
     refreshed_items = get_inventory_items_with_labels_by_ids(item_ids)
     barcodes = _build_barcode_preview(refreshed_items, quantities, normalized_format)
     include_notion = _notion_enabled()
-    filters = {}
+    filters = _filters_from_form(form)
+    try:
+        page = max(int(form.get("current_page", "1") or 1), 1)
+    except (TypeError, ValueError):
+        page = 1
     inventory_items = list_inventory_with_labels_paginated(
         include_notion=include_notion,
         filters=filters,
         limit=25,
-        offset=0,
+        offset=(page - 1) * 25,
     )
     total = count_inventory_with_labels(include_notion=include_notion, filters=filters)
     filter_options = get_inventory_filter_options(include_notion=include_notion)
@@ -369,7 +411,7 @@ async def generate_create(
             "banner": None,
             "filters": filters,
             "filter_options": filter_options,
-            "page": 1,
+            "page": page,
             "total_pages": max((total + 24) // 25, 1),
             "total_items": total,
         },
